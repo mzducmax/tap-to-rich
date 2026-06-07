@@ -1,0 +1,6 @@
+{
+  "name": "Stack Game",
+  "description": "An interactive 2.5D isometric blocks stacking game with dynamic day/night cycles, bulk build/destroy operations, sound effects, and slice physics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
