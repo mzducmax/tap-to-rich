@@ -3,7 +3,7 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-import roastDuckUrl from '../../roast-duck-plate.png';
+import roastDuckUrl from '../assets/roast-duck-plate.png';
 
 export const ROAST_DUCK_URL = roastDuckUrl;
 

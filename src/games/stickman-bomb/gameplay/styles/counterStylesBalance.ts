@@ -44,6 +44,23 @@ export const counterStylesBalance = `
     flex-shrink: 0;
   }
 
+  .counter-scene-balance .digit-sign {
+    height: 108px;
+    width: 48px;
+    flex-shrink: 0;
+    font-size: 96px;
+    font-weight: 700;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Courier New', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--balance-text);
+    text-shadow:
+      0 0 12px var(--balance-glow),
+      0 2px 4px rgba(0, 0, 0, 0.55);
+    line-height: 1;
+  }
+
   .counter-scene-balance .digit-strip {
     transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
   }

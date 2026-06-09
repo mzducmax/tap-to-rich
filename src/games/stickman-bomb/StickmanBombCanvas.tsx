@@ -12,17 +12,18 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { useAnimation } from 'motion/react';
 import { audioManager } from '../../utils/audio';
 import {
   HammerCursor,
   NumberDisplay,
   useGameplayScore,
-  useShake,
-  WeaponModeBadge,
-  weaponModeBadgeStyles,
-  formatWeaponSwitchKeyLabel,
+  useEstateHitShake,
   gameLayerClasses,
   gameLayerStyle,
+  gamePausedStyles,
+  resetGameplayPauseClock,
+  setGameplayPaused,
   type HammerImpactPayload,
   isClickInHitZone,
   isStrikeInHitZone,
@@ -59,6 +60,7 @@ import {
   type StickmanBombCanvasHandle,
   type StickmanBombCanvasProps,
 } from './types';
+import { EstateDisplay } from './estate';
 
 export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanBombCanvasProps>(
   (
@@ -68,8 +70,11 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       onGameReset,
       isMuted,
       targetScore,
+      previewEstateLevel = null,
+      estateImageOverrides,
       freezeSway = false,
       counterDisplayStyle = 'stick',
+      showCounter = true,
       weaponMode = 'hammer' as WeaponMode,
       weaponSwitchKey = 'Tab',
       onWeaponModeChange,
@@ -89,10 +94,12 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     const explosionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const explosionBurstSeqRef = useRef(0);
     const counterRef = useRef<HTMLDivElement>(null);
-    const counterBoxRef = useRef<HTMLDivElement>(null);
-    const { controls, shake } = useShake();
+    const estateTargetRef = useRef<HTMLDivElement>(null);
+    const counterControls = useAnimation();
+    const { controls: estateHitControls, shake: shakeEstate } = useEstateHitShake();
 
     const {
+      count,
       counterTokens,
       penaltyFloats,
       increment,
@@ -105,7 +112,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     } = useGameplayScore({
       isMuted,
       onStatsChange,
-      shake,
+      shake: shakeEstate,
       targetScore,
       freezeSway,
     });
@@ -145,7 +152,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       triggerTestWave: triggerBirdTestWave,
     } = useBirdFlock({
       active: birdsActive,
-      counterBoxRef,
+      gameplayTargetRef: estateTargetRef,
       containerRef: gameAreaRef,
       onPoopHitCounter: handleBirdPoopHit,
       sheepCrossing: sheepPhase === 'crossing',
@@ -198,6 +205,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       setActiveAttacks([]);
       setActiveBowAttacks([]);
       setExplosionBurstId(0);
+      resetGameplayPauseClock();
       resetScore();
       resetSheepCycle();
       resetBirdCycle();
@@ -214,21 +222,21 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         clickY,
       }: HammerImpactPayload) => {
         const container = gameAreaRef.current;
-        const counter = counterBoxRef.current;
-        if (!container || !counter) return;
+        const estate = estateTargetRef.current;
+        if (!container || !estate) return;
 
-        const hitCounter =
+        const hitEstate =
           isStrikeInHitZone(
             impactX,
             impactY,
             pivotX,
             pivotY,
-            counter,
+            estate,
             container,
           ) ||
-          isClickInHitZone(clickX, clickY, counter, container);
+          isClickInHitZone(clickX, clickY, estate, container);
 
-        if (hitCounter) increment();
+        if (hitEstate) increment();
       },
       [increment],
     );
@@ -253,7 +261,6 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     );
 
     const isGunMode = weaponMode === 'gun';
-    const switchKeyLabel = formatWeaponSwitchKeyLabel(weaponSwitchKey);
 
     useEffect(() => {
       if (freezeSway || !onWeaponModeChange) return;
@@ -279,11 +286,15 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     }, [freezeSway, isGunMode, isMuted, onWeaponModeChange, weaponSwitchKey]);
 
     const keyActionContext = useMemo<KeyActionContext>(
-      () => ({ startBombing, startBowAttack }),
-      [startBombing, startBowAttack],
+      () => ({ startBombing, startBowAttack, paused: freezeSway }),
+      [startBombing, startBowAttack, freezeSway],
     );
 
     useKeyActions(keyActions, keyActionContext);
+
+    useEffect(() => {
+      setGameplayPaused(freezeSway);
+    }, [freezeSway]);
 
     useImperativeHandle(
       ref,
@@ -326,10 +337,10 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         ref={gameAreaRef}
         className={`absolute inset-0 w-full h-full bg-transparent font-sans cursor-none isolate ${
           isGunMode ? 'gun-scope-stage' : 'overflow-visible'
-        }`}
+        }${freezeSway ? ' game-paused' : ''}`}
       >
         {isGunMode && <style>{scopeViewStyles}</style>}
-        <style>{weaponModeBadgeStyles}</style>
+        <style>{gamePausedStyles}</style>
 
         {/* World — sheep, ambient (below counter) */}
         <div
@@ -365,21 +376,32 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           </div>
         )}
 
-        {/* Counter — readable, not darkened by scope */}
+        {/* Score (left) + estate target (center) */}
         <div className={gameLayerClasses.counter} style={gameLayerStyle('counter')}>
-          <NumberDisplay
-            counterTokens={counterTokens}
-            controls={controls}
+          {showCounter && (
+            <NumberDisplay
+              score={count}
+              counterTokens={counterTokens}
+              controls={counterControls}
+              freezeSway={freezeSway}
+              displayStyle={counterDisplayStyle}
+              displayRef={counterRef}
+              penaltyFloats={penaltyFloats}
+              onPenaltyFloatDone={removePenaltyFloat}
+              sheepBonusFloats={sheepBonusFloats}
+              onSheepBonusFloatDone={removeBonusFloat}
+              birdBonusFloats={birdBonusFloats}
+              onBirdBonusFloatDone={removeBirdBonusFloat}
+            />
+          )}
+          <EstateDisplay
+            score={count}
+            targetScore={targetScore}
+            previewEstateLevel={previewEstateLevel}
+            estateImageOverrides={estateImageOverrides}
             freezeSway={freezeSway}
-            displayStyle={counterDisplayStyle}
-            displayRef={counterRef}
-            counterBoxRef={counterBoxRef}
-            penaltyFloats={penaltyFloats}
-            onPenaltyFloatDone={removePenaltyFloat}
-            sheepBonusFloats={sheepBonusFloats}
-            onSheepBonusFloatDone={removeBonusFloat}
-            birdBonusFloats={birdBonusFloats}
-            onBirdBonusFloatDone={removeBirdBonusFloat}
+            targetRef={estateTargetRef}
+            hitControls={estateHitControls}
             explosionOverlay={<CounterExplosion burstId={explosionBurstId} />}
           />
         </div>
@@ -428,7 +450,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
             <BombSequence
               key={attack.id}
               angle={attack.angle}
-              counterBoxRef={counterBoxRef}
+              gameplayTargetRef={estateTargetRef}
               onExplode={triggerExplosion}
               onComplete={() => finishBombing(attack.id)}
             />
@@ -438,38 +460,13 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
             <BowSequence
               key={`bow-${attack.id}`}
               angle={attack.angle}
-              counterBoxRef={counterBoxRef}
+              gameplayTargetRef={estateTargetRef}
               onHit={triggerBowHit}
               onComplete={() => finishBowAttack(attack.id)}
             />
           ))}
 
           <ExplosionFlash burstId={explosionBurstId} />
-        </div>
-
-        {/* HUD */}
-        <div className={gameLayerClasses.hud} style={gameLayerStyle('hud')}>
-          <div className="absolute top-24 left-0 right-0 font-mono text-white/80 text-xs text-center px-4 animate-pulse drop-shadow-md">
-            {isGunMode
-              ? `CLICK TO SHOOT | SCOPE VIEW | [${switchKeyLabel}] HAMMER`
-              : `PRESS [1] BOMB | [2] BOW | CLICK TO INCREASE | [${switchKeyLabel}] GUN`}
-          </div>
-
-          <WeaponModeBadge mode={weaponMode} switchKeyCode={weaponSwitchKey} />
-
-          {!freezeSway && (
-            <button
-              type="button"
-              className="absolute bottom-6 left-4 z-50 pointer-events-auto rounded-lg border border-white/25 bg-black/45 px-3 py-1.5 font-mono text-[11px] text-white/90 shadow-md backdrop-blur-sm transition hover:bg-black/60 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={sheepPhase === 'crossing'}
-              onClick={() => {
-                triggerBirdTestWave();
-              }}
-              aria-label="Test đàn vịt bay qua"
-            >
-              🦆 Test vịt
-            </button>
-          )}
         </div>
       </div>
     );

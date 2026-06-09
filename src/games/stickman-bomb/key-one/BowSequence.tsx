@@ -1,5 +1,5 @@
 /**
- * Bow attack: archer stands far away, shoots; arrow sticks in the counter (−5).
+ * Bow attack: archer stands far away, shoots; arrow sticks in the estate (−5).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -53,12 +53,12 @@ function flyArrow(
 
 type BowSequenceProps = {
   angle: AttackAngle;
-  counterBoxRef: React.RefObject<HTMLElement | null>;
+  gameplayTargetRef: React.RefObject<HTMLElement | null>;
   onHit: () => void;
   onComplete: () => void;
 };
 
-export function BowSequence({ angle, counterBoxRef, onHit, onComplete }: BowSequenceProps) {
+export function BowSequence({ angle, gameplayTargetRef, onHit, onComplete }: BowSequenceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickmanRef = useRef<HTMLDivElement>(null);
   const arrowRef = useRef<HTMLDivElement>(null);
@@ -75,7 +75,7 @@ export function BowSequence({ angle, counterBoxRef, onHit, onComplete }: BowSequ
     let cancelled = false;
 
     async function attack() {
-      const ready = await waitForRefs([containerRef, stickmanRef, arrowRef, counterBoxRef]);
+      const ready = await waitForRefs([containerRef, stickmanRef, arrowRef, gameplayTargetRef]);
       if (!ready) {
         onCompleteRef.current();
         return;
@@ -85,7 +85,7 @@ export function BowSequence({ angle, counterBoxRef, onHit, onComplete }: BowSequ
       const man = stickmanRef.current!;
       const arrow = arrowRef.current!;
       const container = containerRef.current!;
-      const box = counterBoxRef.current!;
+      const box = gameplayTargetRef.current!;
 
       const containerRect = container.getBoundingClientRect();
       const boxRect = box.getBoundingClientRect();
@@ -142,7 +142,7 @@ export function BowSequence({ angle, counterBoxRef, onHit, onComplete }: BowSequ
     return () => {
       cancelled = true;
     };
-  }, [angle, counterBoxRef]);
+  }, [angle, gameplayTargetRef]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 pointer-events-none z-30 overflow-visible">

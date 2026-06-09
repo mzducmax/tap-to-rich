@@ -11,7 +11,7 @@ import {
   type BirdPhase,
 } from '../config/birdConfig';
 import { buildBirdFlock, type BirdSpawn } from '../logic/buildBirdFlock';
-import { hitTestBirdAtPoint, isDuckAboveCounterWidth } from '../logic/birdHitTest';
+import { hitTestBirdAtPoint, isDuckReadyToDropPoop } from '../logic/birdHitTest';
 import {
   computeBirdCrossProgress,
   computeBirdScreenRect,
@@ -20,6 +20,7 @@ import {
 import { buildPoopDrop } from '../logic/buildPoopDrop';
 import { computeRoastFallPx } from '../logic/computeRoastFall';
 import { mountRoastPlate } from '../logic/mountRoastPlate';
+import { scheduleWhenGameplayActive, shiftAnchorsForPause } from '../../logic/gameplayPause';
 import type {
   BirdBonusFloat,
   BirdHitEffect,
@@ -38,7 +39,7 @@ export type {
 
 type UseBirdFlockOptions = {
   active: boolean;
-  counterBoxRef: RefObject<HTMLElement | null>;
+  gameplayTargetRef: RefObject<HTMLElement | null>;
   containerRef: RefObject<HTMLElement | null>;
   onPoopHitCounter: () => void;
   sheepCrossing: boolean;
@@ -46,7 +47,7 @@ type UseBirdFlockOptions = {
 
 export function useBirdFlock({
   active,
-  counterBoxRef,
+  gameplayTargetRef,
   containerRef,
   onPoopHitCounter,
   sheepCrossing,
@@ -60,6 +61,9 @@ export function useBirdFlock({
   const [hitEffects, setHitEffects] = useState<BirdHitEffect[]>([]);
 
   const cycleStartRef = useRef(Date.now());
+  const pausedAtRef = useRef<number | null>(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const prevPhaseRef = useRef<BirdPhase>('idle');
   const waveStartMsRef = useRef(0);
   const waveIdRef = useRef(0);
@@ -97,6 +101,7 @@ export function useBirdFlock({
 
   const resetCycle = useCallback(() => {
     cycleStartRef.current = Date.now();
+    pausedAtRef.current = null;
     prevPhaseRef.current = 'idle';
     waveStartMsRef.current = 0;
     waveIdRef.current = 0;
@@ -139,7 +144,20 @@ export function useBirdFlock({
   }, [active, containerRef]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      if (pausedAtRef.current === null) pausedAtRef.current = Date.now();
+      return;
+    }
+
+    if (pausedAtRef.current !== null) {
+      const resumedAt = Date.now();
+      shiftAnchorsForPause(
+        [cycleStartRef, waveStartMsRef, forcedCrossingUntilRef],
+        pausedAtRef.current,
+        resumedAt,
+      );
+      pausedAtRef.current = null;
+    }
 
     const tick = () => {
       const now = Date.now();
@@ -167,9 +185,9 @@ export function useBirdFlock({
     if (!active || phase !== 'crossing' || sheepCrossing) return;
 
     const tryDropPoops = () => {
-      const counter = counterBoxRef.current;
+      const target = gameplayTargetRef.current;
       const flock = flockRef.current;
-      if (!counter || flock.length === 0) return;
+      if (!target || flock.length === 0) return;
 
       const { width, height } = layerSizeRef.current;
       if (width <= 0 || height <= 0) return;
@@ -186,39 +204,48 @@ export function useBirdFlock({
         const container = containerRef.current;
         if (!container) continue;
 
-        if (!isDuckAboveCounterWidth(rect, counter, container)) continue;
-
-        poopedBirdIdsRef.current.add(bird.id);
-
         const butt = computeDuckButtPoint(rect);
+        if (!isDuckReadyToDropPoop(rect, butt, target, container)) continue;
+
         const dropId = ++poopDropIdRef.current;
         const drop = buildPoopDrop({
           id: dropId,
+          buttX: butt.x,
           buttY: butt.y,
-          counter,
+          target,
           container,
         });
 
+        poopedBirdIdsRef.current.add(bird.id);
+
         setFallingPoops((prev) => [...prev, drop]);
 
-        window.setTimeout(() => {
-          const penaltyFloatId = ++poopPenaltyFloatIdRef.current;
-          setPoopPenaltyFloats((prev) => [
-            ...prev,
-            { id: penaltyFloatId, x: drop.hitX, y: drop.hitY },
-          ]);
-          onPoopHitCounterRef.current();
-        }, drop.fallMs + Math.round(drop.stickMs * 0.65));
+        scheduleWhenGameplayActive(
+          () => activeRef.current,
+          () => {
+            const penaltyFloatId = ++poopPenaltyFloatIdRef.current;
+            setPoopPenaltyFloats((prev) => [
+              ...prev,
+              { id: penaltyFloatId, x: drop.hitX, y: drop.hitY },
+            ]);
+            onPoopHitCounterRef.current();
+          },
+          drop.fallMs + Math.round(drop.stickMs * 0.65),
+        );
 
-        window.setTimeout(() => {
-          setFallingPoops((prev) => prev.filter((item) => item.id !== dropId));
-        }, drop.totalMs);
+        scheduleWhenGameplayActive(
+          () => activeRef.current,
+          () => {
+            setFallingPoops((prev) => prev.filter((item) => item.id !== dropId));
+          },
+          drop.totalMs,
+        );
       }
     };
 
     const poopIntervalId = window.setInterval(tryDropPoops, 120);
     return () => window.clearInterval(poopIntervalId);
-  }, [active, counterBoxRef, containerRef, phase, sheepCrossing]);
+  }, [active, gameplayTargetRef, containerRef, phase, sheepCrossing]);
 
   const registerBirdRef = useCallback((id: number, node: HTMLDivElement | null) => {
     if (node) birdRefs.current.set(id, node);
@@ -280,17 +307,17 @@ export function useBirdFlock({
       if (bird && progress !== null) {
         const rect = computeBirdScreenRect(bird, progress, width, height);
         const container = containerRef.current;
-        const counter = counterBoxRef.current;
+        const target = gameplayTargetRef.current;
         const drop = track?.querySelector<HTMLElement>('.bird-pigeon-drop');
         const pigeon = drop?.querySelector<HTMLElement>('.bird-pigeon');
 
-        if (drop && pigeon && container && counter) {
+        if (drop && pigeon && container && target) {
           mountRoastPlate(pigeon);
           const { fallPx, fallMs } = computeRoastFallPx(
             rect.topY,
             bird.scale,
             container,
-            counter,
+            target,
           );
           drop.style.setProperty('--bird-fall-px', `${fallPx}px`);
           drop.style.setProperty('--bird-fall-ms', `${fallMs}ms`);
@@ -302,7 +329,7 @@ export function useBirdFlock({
       showBonusFloat();
       return true;
     },
-    [phase, sheepCrossing, showBonusFloat, containerRef, counterBoxRef],
+    [phase, sheepCrossing, showBonusFloat, containerRef, gameplayTargetRef],
   );
 
   return {

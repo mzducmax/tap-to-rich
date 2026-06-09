@@ -9,6 +9,7 @@ export const KEY_2_BOW = '2';
 export type KeyActionContext = {
   startBombing: () => void;
   startBowAttack: () => void;
+  paused: boolean;
 };
 
 export type KeyActionDefinition = {

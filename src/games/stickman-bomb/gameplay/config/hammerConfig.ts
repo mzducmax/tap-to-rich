@@ -3,12 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/** Extra padding around the counter — valid hammer strike zone */
-export const HAMMER_HIT_ZONE_PADDING = 140;
+import hammerSpriteUrl from '../assets/hammer.png';
 
-export const HAMMER_LENGTH = 130;
-export const HAMMER_HEAD_W = 90;
-export const HAMMER_HEAD_H = 55;
+/** Extra padding around the estate gameplay target — valid hammer strike zone */
+export const HAMMER_HIT_ZONE_PADDING = 48;
+
+export const HAMMER_SPRITE_URL = hammerSpriteUrl;
+export const HAMMER_SPRITE_SIZE = 200;
+
+/** Pivot (pommel) and head strike point — normalized 0–1 within the sprite */
+export const HAMMER_PIVOT_NORM_X = 0.697;
+export const HAMMER_PIVOT_NORM_Y = 0.826;
+export const HAMMER_HEAD_NORM_X = 0.377;
+export const HAMMER_HEAD_NORM_Y = 0.293;
+
+/** Align sprite art orientation with the swing angle system */
+export const HAMMER_SPRITE_ANGLE_OFFSET = 46;
 
 export type HitRect = {
   left: number;

@@ -1,5 +1,5 @@
 /**
- * Score counter display (hammer strike increments score).
+ * Score counter display — left dock, separate from gameplay target.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,29 +9,31 @@ import { BALANCE_DIGIT_HEIGHT, ClassicDigit } from './ClassicDigit';
 import { counterStylesBalance } from '../styles/counterStylesBalance';
 import { counterStylesClassic } from '../styles/counterStylesClassic';
 import { counterStylesStick } from '../styles/counterStyles';
+import { scoreDisplaySceneStyles } from '../styles/scoreDisplayScene';
 import { CounterDollarSign } from './CounterDollarSign';
 import type { CounterDisplayStyle } from '../config/counterDisplayStyle';
 import type { CounterToken } from '../logic/formatCounterDisplay';
+import { formatCounterLabel } from '../logic/formatCounterDisplay';
 import { StickDigit } from './StickDigit';
+import { StickMinusSign } from './StickMinusSign';
 import { FloatingPenalty } from './FloatingPenalty';
 import { FloatingSheepBonus } from '../sheep';
 import { FloatingBirdBonus } from '../birds';
 import type { PenaltyFloat, SheepBonusFloat, BirdBonusFloat } from '../types/gameplayTypes';
 
 type NumberDisplayProps = {
+  score: number;
   counterTokens: CounterToken[];
   controls: ReturnType<typeof useAnimation>;
   freezeSway: boolean;
   displayStyle?: CounterDisplayStyle;
   displayRef: React.RefObject<HTMLDivElement | null>;
-  counterBoxRef: React.RefObject<HTMLDivElement | null>;
   penaltyFloats: PenaltyFloat[];
   onPenaltyFloatDone: (id: number) => void;
   sheepBonusFloats?: SheepBonusFloat[];
   onSheepBonusFloatDone?: (id: number) => void;
   birdBonusFloats?: BirdBonusFloat[];
   onBirdBonusFloatDone?: (id: number) => void;
-  explosionOverlay?: React.ReactNode;
 };
 
 function getCounterStyles(style: CounterDisplayStyle) {
@@ -50,6 +52,17 @@ function renderToken(
     return <span key={`gap-${index}`} className="digit-group-gap" aria-hidden />;
   }
 
+  if (token.type === 'sign') {
+    if (isStick) {
+      return <StickMinusSign key={`sign-${index}`} />;
+    }
+    return (
+      <span key={`sign-${index}`} className="digit-sign" aria-hidden>
+        -
+      </span>
+    );
+  }
+
   if (isStick) {
     return <StickDigit key={`digit-${index}`} value={token.value} />;
   }
@@ -64,28 +77,27 @@ function renderToken(
 }
 
 export function NumberDisplay({
+  score,
   counterTokens,
   controls,
   freezeSway,
   displayStyle = 'stick',
   displayRef,
-  counterBoxRef,
   penaltyFloats,
   onPenaltyFloatDone,
   sheepBonusFloats = [],
   onSheepBonusFloatDone,
   birdBonusFloats = [],
   onBirdBonusFloatDone,
-  explosionOverlay,
 }: NumberDisplayProps) {
   const isStick = displayStyle === 'stick';
   const isBalance = displayStyle === 'balance';
   const floatClass = freezeSway ? '' : ' float-animation';
 
   return (
-    <div ref={displayRef} className="relative">
+    <div ref={displayRef} className="score-display-root">
+      <style>{scoreDisplaySceneStyles}</style>
       <style>{getCounterStyles(displayStyle)}</style>
-      {!isBalance && explosionOverlay}
       <AnimatePresence>
         {birdBonusFloats.map((bonus) => (
           <FloatingBirdBonus
@@ -116,8 +128,7 @@ export function NumberDisplay({
         className={isBalance ? 'counter-scene-balance' : 'counter-scene'}
       >
         <div
-          ref={counterBoxRef}
-          id="counter-box"
+          id="score-display-box"
           className={
             isBalance
               ? `balance-display${floatClass}`
@@ -132,16 +143,17 @@ export function NumberDisplay({
               <span className="stick-joint stick-joint-br" aria-hidden />
             </>
           )}
-          <div className="digit-wrapper">
+          <div
+            className="digit-wrapper"
+            aria-label={formatCounterLabel(score)}
+            aria-live="polite"
+          >
             {counterTokens.map((token, index) =>
               renderToken(token, index, isStick, isBalance),
             )}
             <CounterDollarSign style={displayStyle} />
           </div>
         </div>
-        {!isBalance && (
-          <div className={`ground-shadow${freezeSway ? '' : ' shadow-animation'}`} />
-        )}
       </motion.div>
     </div>
   );

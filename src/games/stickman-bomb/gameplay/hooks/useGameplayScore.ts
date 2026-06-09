@@ -4,6 +4,10 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
+import {
+  clampScoreToBounds,
+  hasReachedWinTarget,
+} from '../../background/config/targetLimits';
 import { audioManager } from '../../../../utils/audio';
 import { buildStats } from '../logic/buildStats';
 import { buildCounterTokens } from '../logic/formatCounterDisplay';
@@ -18,6 +22,10 @@ type UseGameplayScoreOptions = {
   targetScore?: number;
   freezeSway?: boolean;
 };
+
+function clampToScoreBounds(value: number, targetScore: number): number {
+  return clampScoreToBounds(value, targetScore);
+}
 
 export function useGameplayScore({
   isMuted,
@@ -36,10 +44,10 @@ export function useGameplayScore({
   freezeSwayRef.current = freezeSway;
   countRef.current = count;
 
-  const isAtTarget = useCallback(
-    (value: number) => value >= targetScoreRef.current || freezeSwayRef.current,
-    [],
-  );
+  const isAtTarget = useCallback((value: number) => {
+    if (freezeSwayRef.current) return true;
+    return hasReachedWinTarget(value, targetScoreRef.current);
+  }, []);
 
   const emitStats = useCallback(
     (nextCount: number) => {
@@ -66,15 +74,15 @@ export function useGameplayScore({
     ) => {
       if (delta > 0 && isAtTarget(countRef.current)) return;
 
-      if (delta < 0 && options?.showPenaltyFloat !== false) {
-        showPenaltyFloat(Math.abs(delta));
-      }
       setCount((prev) => {
         if (delta > 0 && isAtTarget(prev)) return prev;
-        const raw = Math.max(0, prev + delta);
-        const next =
-          delta > 0 ? Math.min(raw, targetScoreRef.current) : raw;
-        if (next !== prev) emitStats(next);
+        const next = clampToScoreBounds(prev + delta, targetScoreRef.current);
+        if (next === prev) return prev;
+
+        if (delta < 0 && options?.showPenaltyFloat !== false) {
+          showPenaltyFloat(Math.abs(delta));
+        }
+        emitStats(next);
         return next;
       });
       void shake(shakeIntensity, shakeDuration);
@@ -86,7 +94,7 @@ export function useGameplayScore({
     if (isAtTarget(countRef.current)) return;
 
     setCount((prev) => {
-      const next = Math.min(prev + 1, targetScoreRef.current);
+      const next = clampToScoreBounds(prev + 1, targetScoreRef.current);
       emitStats(next);
       return next;
     });
@@ -98,7 +106,7 @@ export function useGameplayScore({
     if (isAtTarget(countRef.current)) return;
 
     setCount((prev) => {
-      const next = Math.min(prev + SHEEP_REWARD, targetScoreRef.current);
+      const next = clampToScoreBounds(prev + SHEEP_REWARD, targetScoreRef.current);
       if (next !== prev) emitStats(next);
       return next;
     });
@@ -110,7 +118,10 @@ export function useGameplayScore({
     if (isAtTarget(countRef.current)) return;
 
     setCount((prev) => {
-      const next = Math.min(prev + BIRD_SHOOT_REWARD, targetScoreRef.current);
+      const next = clampToScoreBounds(
+        prev + BIRD_SHOOT_REWARD,
+        targetScoreRef.current,
+      );
       if (next !== prev) emitStats(next);
       return next;
     });

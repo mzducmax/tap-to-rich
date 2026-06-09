@@ -78,6 +78,9 @@ export const STICK_DIGIT_PATHS: Record<number, string> = {
   ].join(' '),
 };
 
+/** Hand-drawn stick-line minus sign */
+export const STICK_MINUS_PATH = 'M12 42 H40';
+
 /** Hand-drawn stick-line dollar sign */
 export const STICK_DOLLAR_PATH = [
   'M30 14 C18 14 12 22 12 30',

@@ -10,6 +10,7 @@ import {
   type SheepPhase,
 } from '../config/sheepConfig';
 import { hitTestSheepAtPoint } from '../logic/sheepHitTest';
+import { shiftAnchorsForPause } from '../../logic/gameplayPause';
 import type { SheepBonusFloat, SheepHitEffect } from '../types/sheepTypes';
 
 export type { SheepBonusFloat, SheepHitEffect } from '../types/sheepTypes';
@@ -21,6 +22,7 @@ export function useSheepHerd(active: boolean) {
   const [hitEffects, setHitEffects] = useState<SheepHitEffect[]>([]);
 
   const cycleStartRef = useRef(Date.now());
+  const pausedAtRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<SheepPhase>('idle');
   const bonusFloatIdRef = useRef(0);
   const hitEffectIdRef = useRef(0);
@@ -29,6 +31,7 @@ export function useSheepHerd(active: boolean) {
 
   const resetCycle = useCallback(() => {
     cycleStartRef.current = Date.now();
+    pausedAtRef.current = null;
     prevPhaseRef.current = 'idle';
     setPhase('idle');
     setWaveId(0);
@@ -39,7 +42,15 @@ export function useSheepHerd(active: boolean) {
   }, []);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      if (pausedAtRef.current === null) pausedAtRef.current = Date.now();
+      return;
+    }
+
+    if (pausedAtRef.current !== null) {
+      shiftAnchorsForPause([cycleStartRef], pausedAtRef.current, Date.now());
+      pausedAtRef.current = null;
+    }
 
     const tick = () => {
       const elapsed = Date.now() - cycleStartRef.current;

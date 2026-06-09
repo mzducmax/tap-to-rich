@@ -6,9 +6,13 @@
 
 import React, { useEffect, useRef } from 'react';
 import {
-  HAMMER_HEAD_H,
-  HAMMER_HEAD_W,
-  HAMMER_LENGTH,
+  HAMMER_HEAD_NORM_X,
+  HAMMER_HEAD_NORM_Y,
+  HAMMER_PIVOT_NORM_X,
+  HAMMER_PIVOT_NORM_Y,
+  HAMMER_SPRITE_ANGLE_OFFSET,
+  HAMMER_SPRITE_SIZE,
+  HAMMER_SPRITE_URL,
 } from '../config/hammerConfig';
 
 export type HammerImpactPayload = {
@@ -45,9 +49,6 @@ type HammerState = {
   angle: number;
   targetAngle: number;
   phase: HammerPhase;
-  length: number;
-  headW: number;
-  headH: number;
 };
 
 type HammerCursorProps = {
@@ -57,19 +58,23 @@ type HammerCursorProps = {
   visible?: boolean;
 };
 
-function roundRectPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(x, y, w, h, r);
-    return;
-  }
-  ctx.rect(x, y, w, h);
+function getHeadLocalOffset() {
+  const size = HAMMER_SPRITE_SIZE;
+  return {
+    x: (HAMMER_HEAD_NORM_X - HAMMER_PIVOT_NORM_X) * size,
+    y: (HAMMER_HEAD_NORM_Y - HAMMER_PIVOT_NORM_Y) * size,
+  };
+}
+
+function getHeadWorldPosition(hammer: HammerState) {
+  const { x: localX, y: localY } = getHeadLocalOffset();
+  const rad = ((hammer.angle + HAMMER_SPRITE_ANGLE_OFFSET) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: hammer.x + localX * cos - localY * sin,
+    y: hammer.y + localX * sin + localY * cos,
+  };
 }
 
 function createImpact(
@@ -98,48 +103,25 @@ function createImpact(
 function drawHammer(
   ctx: CanvasRenderingContext2D,
   hammer: HammerState,
+  hammerImg: HTMLImageElement,
   particles: Particle[],
   shockwaves: Shockwave[],
   screenShakeRef: { value: number },
   onImpact?: (impactX: number, impactY: number, pivotX: number, pivotY: number) => void,
 ) {
+  const size = HAMMER_SPRITE_SIZE;
+  const pivotX = HAMMER_PIVOT_NORM_X * size;
+  const pivotY = HAMMER_PIVOT_NORM_Y * size;
+
   ctx.save();
   ctx.translate(hammer.x, hammer.y);
-  ctx.rotate((hammer.angle * Math.PI) / 180);
-
-  const handleGrad = ctx.createLinearGradient(-5, 0, 5, 0);
-  handleGrad.addColorStop(0, '#3e2723');
-  handleGrad.addColorStop(0.5, '#795548');
-  handleGrad.addColorStop(1, '#3e2723');
-  ctx.fillStyle = handleGrad;
-  ctx.beginPath();
-  roundRectPath(ctx, -5, -hammer.length, 10, hammer.length, 5);
-  ctx.fill();
-
-  ctx.translate(0, -hammer.length);
-
-  ctx.shadowBlur = 15;
-  ctx.shadowColor = 'black';
-
-  const headGrad = ctx.createLinearGradient(-35, -20, 35, 20);
-  headGrad.addColorStop(0, '#333');
-  headGrad.addColorStop(0.4, '#fff');
-  headGrad.addColorStop(1, '#111');
-
-  ctx.fillStyle = headGrad;
-  ctx.beginPath();
-  roundRectPath(ctx, -hammer.headW / 2, -hammer.headH / 2, hammer.headW, hammer.headH, 5);
-  ctx.fill();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.globalAlpha = 0.5;
-  ctx.fillRect(-hammer.headW / 2, -hammer.headH / 2 + 3, 6, hammer.headH - 6);
-  ctx.globalAlpha = 1;
+  ctx.rotate(((hammer.angle + HAMMER_SPRITE_ANGLE_OFFSET) * Math.PI) / 180);
+  ctx.drawImage(hammerImg, -pivotX, -pivotY, size, size);
 
   if (hammer.phase === 'SMASH' && hammer.angle <= -10) {
-    const matrix = ctx.getTransform();
-    createImpact(matrix.e, matrix.f, particles, shockwaves, screenShakeRef);
-    onImpact?.(matrix.e, matrix.f, hammer.x, hammer.y);
+    const head = getHeadWorldPosition(hammer);
+    createImpact(head.x, head.y, particles, shockwaves, screenShakeRef);
+    onImpact?.(head.x, head.y, hammer.x, hammer.y);
     hammer.phase = 'RECOVER';
     hammer.targetAngle = 15;
   }
@@ -210,6 +192,13 @@ export function HammerCursor({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const hammerImg = new Image();
+    let hammerReady = false;
+    hammerImg.onload = () => {
+      hammerReady = true;
+    };
+    hammerImg.src = HAMMER_SPRITE_URL;
+
     const mouse = { x: 0, y: 0 };
     const clickPoint = { x: 0, y: 0 };
     const particles: Particle[] = [];
@@ -224,9 +213,6 @@ export function HammerCursor({
       angle: 15,
       targetAngle: 15,
       phase: 'IDLE',
-      length: HAMMER_LENGTH,
-      headW: HAMMER_HEAD_W,
-      headH: HAMMER_HEAD_H,
     };
 
     const handleImpact = (
@@ -329,7 +315,10 @@ export function HammerCursor({
       updateHammer(hammer, mouse.x, mouse.y);
       updateParticles(particles);
       updateShockwaves(shockwaves);
-      drawHammer(ctx, hammer, particles, shockwaves, screenShakeRef, handleImpact);
+
+      if (hammerReady) {
+        drawHammer(ctx, hammer, hammerImg, particles, shockwaves, screenShakeRef, handleImpact);
+      }
 
       ctx.restore();
       rafRef.current = requestAnimationFrame(draw);

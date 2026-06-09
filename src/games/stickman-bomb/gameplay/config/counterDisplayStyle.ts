@@ -42,3 +42,13 @@ export function loadCounterDisplayStyle(): CounterDisplayStyle {
 export function saveCounterDisplayStyle(style: CounterDisplayStyle) {
   localStorage.setItem(COUNTER_DISPLAY_STYLE_STORAGE_KEY, style);
 }
+
+export const COUNTER_VISIBLE_STORAGE_KEY = 'stack_show_score_counter';
+
+export function loadCounterVisible(): boolean {
+  return localStorage.getItem(COUNTER_VISIBLE_STORAGE_KEY) !== 'false';
+}
+
+export function saveCounterVisible(visible: boolean) {
+  localStorage.setItem(COUNTER_VISIBLE_STORAGE_KEY, String(visible));
+}

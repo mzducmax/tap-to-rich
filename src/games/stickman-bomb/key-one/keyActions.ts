@@ -8,14 +8,14 @@ import { KEY_1_BOMB, KEY_2_BOW, type KeyActionDefinition } from './types';
 export const key1BombAction: KeyActionDefinition = {
   key: KEY_1_BOMB,
   label: 'Plant bomb',
-  canRun: () => true,
+  canRun: ({ paused }) => !paused,
   run: ({ startBombing }) => startBombing(),
 };
 
 export const key2BowAction: KeyActionDefinition = {
   key: KEY_2_BOW,
   label: 'Bow attack',
-  canRun: () => true,
+  canRun: ({ paused }) => !paused,
   run: ({ startBowAttack }) => startBowAttack(),
 };
 

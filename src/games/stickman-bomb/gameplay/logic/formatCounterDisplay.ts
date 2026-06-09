@@ -5,6 +5,7 @@
 
 export type CounterToken =
   | { type: 'digit'; value: string }
+  | { type: 'sign'; value: '-' }
   | { type: 'group-gap' };
 
 function splitThousands(raw: string): string[] {
@@ -26,6 +27,10 @@ export function buildCounterTokens(count: number): CounterToken[] {
   const groups = splitThousands(raw);
   const tokens: CounterToken[] = [];
 
+  if (count < 0) {
+    tokens.push({ type: 'sign', value: '-' });
+  }
+
   groups.forEach((group, groupIndex) => {
     if (groupIndex > 0) tokens.push({ type: 'group-gap' });
     for (const char of group) {
@@ -34,4 +39,11 @@ export function buildCounterTokens(count: number): CounterToken[] {
   });
 
   return tokens;
+}
+
+/** Screen-reader / debug label e.g. "-10$" */
+export function formatCounterLabel(count: number): string {
+  const sign = count < 0 ? '-' : '';
+  const digits = Math.abs(count).toLocaleString('en-US');
+  return `${sign}${digits}$`;
 }

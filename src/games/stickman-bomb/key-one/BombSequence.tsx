@@ -1,5 +1,5 @@
 /**
- * Action sequence: 360° → counter edge → drop/toss → roll → explode.
+ * Action sequence: 360° → estate edge → drop/toss → roll → explode.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -20,12 +20,12 @@ export { randomAttackAngle } from './attackGeometry';
 
 type BombSequenceProps = {
   angle: AttackAngle;
-  counterBoxRef: React.RefObject<HTMLElement | null>;
+  gameplayTargetRef: React.RefObject<HTMLElement | null>;
   onExplode: () => void;
   onComplete: () => void;
 };
 
-export function BombSequence({ angle, counterBoxRef, onExplode, onComplete }: BombSequenceProps) {
+export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }: BombSequenceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickmanRef = useRef<HTMLDivElement>(null);
   const bombRef = useRef<HTMLDivElement>(null);
@@ -44,7 +44,7 @@ export function BombSequence({ angle, counterBoxRef, onExplode, onComplete }: Bo
     let cancelled = false;
 
     async function attack() {
-      const ready = await waitForRefs([containerRef, stickmanRef, bombRef, counterBoxRef]);
+      const ready = await waitForRefs([containerRef, stickmanRef, bombRef, gameplayTargetRef]);
       if (!ready) {
         onCompleteRef.current();
         return;
@@ -54,7 +54,7 @@ export function BombSequence({ angle, counterBoxRef, onExplode, onComplete }: Bo
       const man = stickmanRef.current!;
       const bomb = bombRef.current!;
       const container = containerRef.current!;
-      const box = counterBoxRef.current!;
+      const box = gameplayTargetRef.current!;
 
       const containerRect = container.getBoundingClientRect();
       const boxRect = box.getBoundingClientRect();
@@ -140,7 +140,7 @@ export function BombSequence({ angle, counterBoxRef, onExplode, onComplete }: Bo
     return () => {
       cancelled = true;
     };
-  }, [angle, counterBoxRef]);
+  }, [angle, gameplayTargetRef]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 pointer-events-none z-30 overflow-visible">

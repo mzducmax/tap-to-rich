@@ -6,13 +6,14 @@
 export { HammerCursor } from './components/HammerCursor';
 export type { HammerImpactPayload } from './components/HammerCursor';
 export { NumberDisplay } from './components/NumberDisplay';
+export { GameplayControlsSection } from './components/GameplayControlsSection';
 export { WeaponModeBadge, weaponModeBadgeStyles } from './components/WeaponModeBadge';
 
 export { useGameplayScore } from './hooks/useGameplayScore';
-export { useShake } from './hooks/useShake';
+export { useShake, useEstateHitShake } from './hooks/useShake';
 
 export { buildStats } from './logic/buildStats';
-export { buildCounterTokens } from './logic/formatCounterDisplay';
+export { buildCounterTokens, formatCounterLabel } from './logic/formatCounterDisplay';
 export type { CounterToken } from './logic/formatCounterDisplay';
 
 export {
@@ -20,7 +21,9 @@ export {
   gameLayerStyle,
   GAME_LAYER_Z,
 } from './config/gameLayers';
-export { GAMEPLAY_CYCLE_MS, BIRD_DELAY_AFTER_SHEEP_MS } from './config/gameplayCycle';
+export { gamePausedStyles } from './config/pauseStyles';
+export { setGameplayPaused, resetGameplayPauseClock } from './logic/gameplayPause';
+export { GAMEPLAY_CYCLE_MS, BIRD_DELAY_AFTER_SHEEP_MS, GAMEPLAY_INITIAL_DELAY_MS } from './config/gameplayCycle';
 export {
   getExpandedHitRect,
   isClickInHitZone,
@@ -31,8 +34,11 @@ export type { CounterDisplayStyle } from './config/counterDisplayStyle';
 export {
   COUNTER_DISPLAY_STYLE_OPTIONS,
   COUNTER_DISPLAY_STYLE_STORAGE_KEY,
+  COUNTER_VISIBLE_STORAGE_KEY,
   loadCounterDisplayStyle,
   saveCounterDisplayStyle,
+  loadCounterVisible,
+  saveCounterVisible,
 } from './config/counterDisplayStyle';
 export {
   formatWeaponSwitchKeyLabel,

@@ -4,9 +4,30 @@
  */
 
 import type React from 'react';
+import { isGameplayPaused } from '../gameplay/logic/gameplayPause';
 
 export function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  return new Promise<void>((resolve) => {
+    let elapsed = 0;
+    let last = Date.now();
+
+    const tick = () => {
+      if (isGameplayPaused()) {
+        last = Date.now();
+        setTimeout(tick, 32);
+        return;
+      }
+
+      const now = Date.now();
+      elapsed += now - last;
+      last = now;
+
+      if (elapsed >= ms) resolve();
+      else setTimeout(tick, Math.min(32, ms - elapsed));
+    };
+
+    tick();
+  });
 }
 
 export async function waitForRefs(
@@ -58,9 +79,21 @@ export function move2d(
 
   return new Promise<void>((resolve) => {
     let startT: number | null = null;
+    let pauseFrame: number | null = null;
     const dist = Math.hypot(end.x - start.x, end.y - start.y);
 
     function step(t: number) {
+      if (isGameplayPaused()) {
+        if (pauseFrame === null) pauseFrame = t;
+        requestAnimationFrame(step);
+        return;
+      }
+
+      if (pauseFrame !== null) {
+        if (startT !== null) startT += t - pauseFrame;
+        pauseFrame = null;
+      }
+
       if (startT === null) startT = t;
       const raw = Math.min((t - startT) / duration, 1);
       const p = easeProgress(raw, ease);
@@ -103,9 +136,21 @@ export function gentleTossUp(
 ) {
   return new Promise<void>((resolve) => {
     let startT: number | null = null;
+    let pauseFrame: number | null = null;
     const arc = Math.max(28, Math.abs(y1 - y2) * 0.18);
 
     function step(t: number) {
+      if (isGameplayPaused()) {
+        if (pauseFrame === null) pauseFrame = t;
+        requestAnimationFrame(step);
+        return;
+      }
+
+      if (pauseFrame !== null) {
+        if (startT !== null) startT += t - pauseFrame;
+        pauseFrame = null;
+      }
+
       if (startT === null) startT = t;
       const raw = Math.min((t - startT) / duration, 1);
       const p = 1 - Math.pow(1 - raw, 2.2);
@@ -139,8 +184,20 @@ export function gentleDrop(
 ) {
   return new Promise<void>((resolve) => {
     let startT: number | null = null;
+    let pauseFrame: number | null = null;
 
     function step(t: number) {
+      if (isGameplayPaused()) {
+        if (pauseFrame === null) pauseFrame = t;
+        requestAnimationFrame(step);
+        return;
+      }
+
+      if (pauseFrame !== null) {
+        if (startT !== null) startT += t - pauseFrame;
+        pauseFrame = null;
+      }
+
       if (startT === null) startT = t;
       const raw = Math.min((t - startT) / duration, 1);
       const p = raw * raw;
@@ -172,8 +229,20 @@ export function rollOnGround(
 ) {
   return new Promise<void>((resolve) => {
     let startT: number | null = null;
+    let pauseFrame: number | null = null;
 
     function step(t: number) {
+      if (isGameplayPaused()) {
+        if (pauseFrame === null) pauseFrame = t;
+        requestAnimationFrame(step);
+        return;
+      }
+
+      if (pauseFrame !== null) {
+        if (startT !== null) startT += t - pauseFrame;
+        pauseFrame = null;
+      }
+
       if (startT === null) startT = t;
       const raw = Math.min((t - startT) / duration, 1);
       const p = 1 - Math.pow(1 - raw, 2);

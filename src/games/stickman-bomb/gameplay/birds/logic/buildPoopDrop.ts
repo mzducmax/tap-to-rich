@@ -1,5 +1,5 @@
 /**
- * Build poop drop — duck-butt height, random vertical column above counter width.
+ * Build poop drop — falls from duck butt to a random point on the estate face.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,36 +7,38 @@ import type { BirdPoopDrop } from '../types/birdTypes';
 
 type BuildPoopDropInput = {
   id: number;
+  buttX: number;
   buttY: number;
-  counter: HTMLElement;
+  target: HTMLElement;
   container: HTMLElement;
 };
 
 export function buildPoopDrop({
   id,
+  buttX,
   buttY,
-  counter,
+  target,
   container,
 }: BuildPoopDropInput): BirdPoopDrop {
-  const counterRect = counter.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
   const containerRect = container.getBoundingClientRect();
-  const insetX = Math.min(10, counterRect.width * 0.05);
-  const insetY = Math.min(10, counterRect.height * 0.08);
-  const innerW = Math.max(4, counterRect.width - insetX * 2);
-  const innerH = Math.max(4, counterRect.height - insetY * 2);
-  const counterTop = counterRect.top - containerRect.top;
-  const counterBottom = counterRect.bottom - containerRect.top;
-  const counterLeft = counterRect.left - containerRect.left;
-  const faceLeft = counterLeft + insetX;
-  const faceTop = counterTop + insetY;
+  const insetX = Math.min(10, targetRect.width * 0.05);
+  const insetY = Math.min(10, targetRect.height * 0.08);
+  const innerW = Math.max(4, targetRect.width - insetX * 2);
+  const innerH = Math.max(4, targetRect.height - insetY * 2);
+  const targetTop = targetRect.top - containerRect.top;
+  const targetBottom = targetRect.bottom - containerRect.top;
+  const targetLeft = targetRect.left - containerRect.left;
+  const faceLeft = targetLeft + insetX;
+  const faceTop = targetTop + insetY;
 
+  const fromX = buttX;
   const fromY = buttY;
-  const spawnX = faceLeft + Math.random() * innerW;
-  const hitX = spawnX;
+  const hitX = faceLeft + Math.random() * innerW;
   const hitY = faceTop + Math.random() * innerH;
 
   const dripEndY = Math.min(
-    counterBottom + 6,
+    targetBottom + 6,
     hitY + 24 + Math.random() * Math.max(20, innerH * 0.6),
   );
 
@@ -47,7 +49,7 @@ export function buildPoopDrop({
 
   return {
     id,
-    fromX: spawnX,
+    fromX,
     fromY,
     hitX,
     hitY,

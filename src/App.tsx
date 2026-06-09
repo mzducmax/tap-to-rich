@@ -20,13 +20,31 @@ import {
   COUNTER_DISPLAY_STYLE_OPTIONS,
   loadCounterDisplayStyle,
   saveCounterDisplayStyle,
+  loadCounterVisible,
+  saveCounterVisible,
   WEAPON_SWITCH_KEY_OPTIONS,
-  formatWeaponSwitchKeyLabel,
   loadWeaponMode,
   loadWeaponSwitchKey,
   saveWeaponMode,
   saveWeaponSwitchKey,
+  BackgroundSettingsSection,
+  EstateSettingsSection,
+  GameBackgroundRoot,
+  useGameBackground,
+  useEstateImageSettings,
+  GameplayControlsSection,
+  scoreToEstateLevel,
+  loadTargetScore,
+  saveTargetScore,
+  clampTargetScore,
+  hasReachedWinTarget,
+  hasReachedLoseTarget,
+  getLoseTargetScore,
+  MIN_TARGET_SCORE,
+  MAX_TARGET_SCORE,
+  formatCounterLabel,
   type CounterDisplayStyle,
+  type EstateLevel,
   type WeaponMode,
 } from './games/stickman-bomb';
 import TargetGoalDock from './components/TargetGoalDock';
@@ -37,15 +55,11 @@ import type { SettingsActionResult } from './networking/gameActionExecutor';
 import type { MatchRankPlayer } from './networking/rankGameApi';
 import { pushMatchToGlobalRank } from './services/globalLeaderboard';
 import { parseWinProgress } from './networking/winSettings';
-import { GameStats, TimeOfDay } from './types';
+import { GameStats } from './types';
 import { audioManager } from './utils/audio';
 
 /** Temporarily skip login — set to false to re-enable. */
 const SKIP_LOGIN = true;
-
-type BackgroundTheme = 'meadow' | 'day' | 'cyber' | 'sunset' | 'cosmic';
-
-const BACKGROUND_THEMES: BackgroundTheme[] = ['meadow', 'day', 'cyber', 'sunset', 'cosmic'];
 
 type ViewerGiftStats = {
   id: string;
@@ -68,11 +82,8 @@ export default function App() {
     totalBoxesStacked: 1,
   });
 
-  // Target boxes goal to achieve victory (e.g. 100, 5000, customizable in settings)
-  const [targetScore, setTargetScore] = useState(() => {
-    const saved = localStorage.getItem('stack_target_score');
-    return saved ? parseInt(saved, 10) : 100;
-  });
+  // Target goal — supports negative integers (score moves 0 → target)
+  const [targetScore, setTargetScore] = useState(() => loadTargetScore());
 
   // Sound active state
   const [volume, setVolume] = useState(() => {
@@ -83,18 +94,17 @@ export default function App() {
     return localStorage.getItem('stack_muted') === 'true';
   });
 
-  // Custom visual background theme state
-  const [backgroundTheme, setBackgroundTheme] = useState<BackgroundTheme>(() => {
-    const saved = localStorage.getItem('stack_background_theme');
-    if (saved && BACKGROUND_THEMES.includes(saved as BackgroundTheme)) {
-      return saved as BackgroundTheme;
-    }
-    return 'meadow';
-  });
-
   // Modal display overrides
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [previewEstateLevel, setPreviewEstateLevel] = useState<EstateLevel | null>(null);
+  const {
+    estateImageOverrides,
+    setEstateLevelImage,
+    resetEstateLevelImage,
+    resetAllEstateLevelImages,
+  } = useEstateImageSettings();
   const [showVictoryModal, setShowVictoryModal] = useState(false);
+  const [showDefeatModal, setShowDefeatModal] = useState(false);
   const [victoryCountdown, setVictoryCountdown] = useState<number | null>(null);
   const [winProgress, setWinProgress] = useState({ current: 0, total: 0 });
   const [showWinPanel, setShowWinPanel] = useState(() => {
@@ -104,16 +114,27 @@ export default function App() {
   const [counterDisplayStyle, setCounterDisplayStyle] = useState<CounterDisplayStyle>(
     () => loadCounterDisplayStyle(),
   );
+  const [showCounter, setShowCounter] = useState(() => loadCounterVisible());
 
   const [weaponMode, setWeaponMode] = useState<WeaponMode>(() => loadWeaponMode());
   const [weaponSwitchKey, setWeaponSwitchKey] = useState(() => loadWeaponSwitchKey());
 
+  const gamePaused =
+    showSettingsModal ||
+    victoryCountdown !== null ||
+    showDefeatModal ||
+    hasReachedWinTarget(stats.score, targetScore) ||
+    hasReachedLoseTarget(stats.score, targetScore);
+
+  const gameBackground = useGameBackground({
+    score: stats.score,
+    targetScore,
+    paused: gamePaused,
+  });
+
+  const activeEstateLevel = scoreToEstateLevel(stats.score, targetScore);
+
   const canShowWinPanel = showWinPanel && winProgress.total > 0;
-
-  type TimeOfDay = 'sunrise' | 'day' | 'sunset' | 'night';
-  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('day');
-
-  // High score delete notice flash
   const [showNotification, setShowNotification] = useState<string | null>(null);
   type LiveActionBanner =
     | { kind: 'reset'; viewerName: string }
@@ -122,47 +143,37 @@ export default function App() {
   const [liveActionBanner, setLiveActionBanner] = useState<LiveActionBanner | null>(null);
   const liveActionBannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 1. Static starry night background constellation computed once
-  const [starsConstellation] = useState(() => 
-    Array.from({ length: 48 }, (_, i) => ({
-      id: i,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 65}%`,
-      delay: `${Math.random() * 3}s`,
-      scale: 0.4 + Math.random() * 0.8,
-    }))
-  );
-
-  const [grassTufts] = useState(() =>
-    Array.from({ length: 32 }, (_, i) => ({
-      id: i,
-      left: `${(i / 32) * 100 + (Math.random() * 4 - 2)}%`,
-      height: 10 + Math.random() * 16,
-      rotate: -10 + Math.random() * 20,
-      shade: i % 3,
-    })),
-  );
-
-  // Handle building target boxes count
+  // Defeat — score hits negative target threshold
   useEffect(() => {
-    // Stacking score reaches target triggers 10 second victory countdown
-    if (stats.score >= targetScore) {
-      if (!showVictoryModal && victoryCountdown === null) {
+    if (!hasReachedLoseTarget(stats.score, targetScore)) return;
+    if (showDefeatModal || showVictoryModal) return;
+
+    setVictoryCountdown(null);
+    setShowDefeatModal(true);
+    audioManager.playLose();
+    triggerFloatNotify(`💀 HIT ${formatCounterLabel(getLoseTargetScore(targetScore))}! GAME OVER!`);
+  }, [stats.score, targetScore, showDefeatModal, showVictoryModal]);
+
+  // Victory — positive target reached, 10 second survival countdown
+  useEffect(() => {
+    if (hasReachedLoseTarget(stats.score, targetScore)) return;
+
+    if (hasReachedWinTarget(stats.score, targetScore)) {
+      if (!showVictoryModal && !showDefeatModal && victoryCountdown === null) {
         setVictoryCountdown(10);
-        triggerFloatNotify(`🎯 REACHED ${targetScore} BLOCKS! SURVIVE 10 SECONDS TO WIN!`);
+        triggerFloatNotify(`🎯 REACHED ${formatCounterLabel(targetScore)}! SURVIVE 10 SECONDS TO WIN!`);
       }
     } else {
-      // If the score is falling below targetScore (e.g. from developer destruction tool), cancel survival countdown
       if (victoryCountdown !== null) {
         setVictoryCountdown(null);
         triggerFloatNotify(`⚠️ Below goal target! Survival timer cancelled.`);
       }
     }
-  }, [stats.score, targetScore, showVictoryModal, victoryCountdown]);
+  }, [stats.score, targetScore, showVictoryModal, showDefeatModal, victoryCountdown]);
 
   // Countdown timer clock
   useEffect(() => {
-    if (victoryCountdown === null) return;
+    if (victoryCountdown === null || showSettingsModal) return;
 
     // Play high pitched tick for countdown seconds
     audioManager.playTick();
@@ -176,7 +187,7 @@ export default function App() {
       }));
       audioManager.playWin();
       void pushSessionToGlobalRank(targetScore);
-      triggerFloatNotify(`🏆 VICTORY! ACCUMULATED ${targetScore} BLOCKS CRUSHED!`);
+      triggerFloatNotify(`🏆 VICTORY! ACCUMULATED ${formatCounterLabel(targetScore)}!`);
       return;
     }
 
@@ -185,22 +196,7 @@ export default function App() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [victoryCountdown, targetScore]);
-
-  // Auto cycle sky only when Sky Day theme is selected
-  useEffect(() => {
-    if (backgroundTheme !== 'day') return;
-
-    const stages: TimeOfDay[] = ['sunrise', 'day', 'sunset', 'night'];
-    const interval = setInterval(() => {
-      setTimeOfDay((current) => {
-        const nextIdx = (stages.indexOf(current) + 1) % stages.length;
-        return stages[nextIdx];
-      });
-    }, 22000);
-
-    return () => clearInterval(interval);
-  }, [backgroundTheme]);
+  }, [victoryCountdown, targetScore, showSettingsModal]);
 
   const toggleMute = () => {
     const isMutedNow = audioManager.toggleMute();
@@ -222,18 +218,15 @@ export default function App() {
     }
   };
 
-  const handleBackgroundThemeChange = (theme: BackgroundTheme) => {
-    setBackgroundTheme(theme);
-    localStorage.setItem('stack_background_theme', theme);
-    if (theme !== 'day') {
-      setTimeOfDay('day');
-    }
-    audioManager.playPop();
-  };
-
   const handleCounterDisplayStyleChange = (style: CounterDisplayStyle) => {
     setCounterDisplayStyle(style);
     saveCounterDisplayStyle(style);
+    audioManager.playPop();
+  };
+
+  const handleShowCounterChange = (next: boolean) => {
+    setShowCounter(next);
+    saveCounterVisible(next);
     audioManager.playPop();
   };
 
@@ -349,6 +342,7 @@ export default function App() {
     console.log('[Action:Reset] handleLiveGameReset — tower reset + lose sound', { viewerName });
     setVictoryCountdown(null);
     setShowVictoryModal(false);
+    setShowDefeatModal(false);
     canvasRef.current?.resetGame();
     setStats((prev) => ({
       ...prev,
@@ -432,6 +426,8 @@ export default function App() {
           const next = !prev;
           if (next) {
             audioManager.playPop();
+          } else {
+            setPreviewEstateLevel(null);
           }
           return next;
         });
@@ -483,6 +479,7 @@ export default function App() {
     viewerStatsRef.current.clear();
     setVictoryCountdown(null);
     setShowVictoryModal(false);
+    setShowDefeatModal(false);
     if (canvasRef.current) {
       canvasRef.current.resetGame();
     }
@@ -494,21 +491,6 @@ export default function App() {
     }));
     triggerFloatNotify('🔄 Progress and records reset!');
   };
-
-  // Human names for environment translations
-  const timeLabels: Record<TimeOfDay, string> = {
-    sunrise: 'Sunrise 🌅',
-    day: 'Day Sky ☀️',
-    sunset: 'Sunset 🌇',
-    night: 'Night Moon 🌙',
-  };
-
-  const activeThemeKey = backgroundTheme === 'day' ? timeOfDay : backgroundTheme;
-  const canvasTimeOfDay: TimeOfDay = backgroundTheme === 'day' ? timeOfDay : 'day';
-  const isNightLike = activeThemeKey === 'night' || activeThemeKey === 'cosmic' || activeThemeKey === 'cyber';
-  const isDayLike =
-    activeThemeKey === 'sunrise' || activeThemeKey === 'day' || activeThemeKey === 'sunset';
-  const isMeadow = activeThemeKey === 'meadow';
 
   if (!SKIP_LOGIN && !isReady) {
     return (
@@ -525,116 +507,16 @@ export default function App() {
   return (
     <div className="w-screen h-screen font-sans overflow-hidden select-none relative flex flex-col items-center justify-start pb-0 bg-slate-950">
 
-      {/* Absolute Beautiful Smooth-Blending Background Sky Layers */}
-      <div className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none">
-        {/* Meadow — static green field (default) */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-            isMeadow ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-[#7ecbff] via-[#b8e4ff] to-[#d4f0d4]" />
-          <div className="absolute top-14 right-[18%] w-20 h-20 rounded-full bg-yellow-200 shadow-[0_0_45px_18px_rgba(253,224,71,0.45)]" />
-          <div className="absolute top-20 left-[12%] w-28 h-9 bg-white/55 rounded-full blur-[0.5px]" />
-          <div className="absolute top-28 right-[8%] w-36 h-10 bg-white/45 rounded-full blur-[0.5px]" />
-          <div className="absolute inset-x-0 bottom-0 h-[48%] bg-gradient-to-t from-[#1f6b28] via-[#3da842] to-[#6ecf5a]/85" />
-          <div className="absolute bottom-[38%] left-[-10%] w-[55%] h-20 bg-[#358f3a]/55 rounded-[50%] blur-[1px]" />
-          <div className="absolute bottom-[36%] right-[-8%] w-[48%] h-16 bg-[#2d7a32]/50 rounded-[50%] blur-[1px]" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#174d1c]/40 to-transparent" />
-        </div>
-
-        {/* Sunrise Layer */}
-        <div className={`absolute inset-0 bg-gradient-to-b from-purple-950/95 via-rose-900/85 to-amber-250/50 transition-opacity duration-1000 ease-in-out ${activeThemeKey === 'sunrise' ? 'opacity-100' : 'opacity-0'}`} />
-        
-        {/* Day Sky Layer - Elegant, calm slate morning day, peaceful for long sessions */}
-        <div className={`absolute inset-0 bg-gradient-to-b from-[#1e293b] via-[#5facdf] to-[#1e1b4b] transition-opacity duration-1000 ease-in-out ${activeThemeKey === 'day' ? 'opacity-100' : 'opacity-0'}`} />
-        
-        {/* Sunset Layer - soft, quiet, gentle plum-mauve twilight sky (not glaringly bright/red) */}
-        <div className={`absolute inset-0 bg-gradient-to-b from-[#11122a] via-[#3d2c4b] to-[#60424a] transition-opacity duration-1000 ease-in-out ${activeThemeKey === 'sunset' ? 'opacity-100' : 'opacity-0'}`} />
-        
-        {/* Night Layer - peaceful starry deep indigo moonscape (brightened for visibility) */}
-        <div className={`absolute inset-0 bg-gradient-to-b from-[#111736] via-[#1b214f] to-[#252f6b] transition-opacity duration-1000 ease-in-out ${activeThemeKey === 'night' ? 'opacity-100' : 'opacity-0'}`} />
-        
-        {/* Cyber Layer - comfortable soft dark violet-purple dream */}
-        <div className={`absolute inset-0 bg-gradient-to-b from-purple-950 via-fuchsia-950/70 to-pink-950/40 transition-opacity duration-1000 ease-in-out ${activeThemeKey === 'cyber' ? 'opacity-100' : 'opacity-0'}`} />
-        
-        {/* Cosmic Layer - deep dark cosmos indigo space */}
-        <div className={`absolute inset-0 bg-gradient-to-b from-slate-950 via-[#1e1b4b] to-[#090514] transition-opacity duration-1000 ease-in-out ${activeThemeKey === 'cosmic' ? 'opacity-100' : 'opacity-0'}`} />
-      </div>
-
-      {/* Decorative grass blades — meadow theme only */}
-      <div
-        className={`absolute inset-x-0 bottom-0 h-36 pointer-events-none z-0 transition-opacity duration-1000 ${
-          isMeadow ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        {grassTufts.map((tuft) => (
-          <div
-            key={tuft.id}
-            className="absolute bottom-0 w-[3px] rounded-t-full origin-bottom"
-            style={{
-              left: tuft.left,
-              height: `${tuft.height}px`,
-              transform: `rotate(${tuft.rotate}deg)`,
-              backgroundColor:
-                tuft.shade === 0 ? '#1a5c22' : tuft.shade === 1 ? '#247a2e' : '#2e9638',
-            }}
-          />
-        ))}
-      </div>
-
-      {/* 1. Star fields and galaxy rendering during night cycles / cosmic themes */}
-      <div 
-        className={`absolute inset-x-0 top-0 h-2/3 pointer-events-none overflow-hidden z-0 transition-opacity duration-1000 ${
-          isNightLike ? 'opacity-85' : 'opacity-0'
-        }`}
-      >
-        {starsConstellation.map((star) => (
-          <div
-            key={star.id}
-            className="absolute bg-white rounded-full animate-twinkle shadow-sm"
-            style={{
-              left: star.left,
-              top: star.top,
-              width: `${4 * star.scale}px`,
-              height: `${4 * star.scale}px`,
-              animationDelay: star.delay,
-              boxShadow: '0 0 6px 1px rgba(255, 255, 255, 0.4)',
-            }}
-          />
-        ))}
-        {/* Shimmering crescent moon */}
-        <div className="absolute top-16 right-1/4 w-16 h-16 rounded-full bg-transparent shadow-[14px_-14px_0_0_#fef3c7] opacity-80 blur-[0.6px]" />
-      </div>
-
-      {/* 2. Climbing Sun rendering during Non-Night day cycle */}
-      <div 
-        className={`absolute inset-x-0 top-0 h-1/2 pointer-events-none overflow-hidden z-0 transition-opacity duration-1000 ${
-          isDayLike ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <div 
-          className={`absolute rounded-full transition-all duration-[1200ms] ${
-            activeThemeKey === 'sunrise'
-              ? 'top-24 left-1/3 w-20 h-20 bg-amber-300 shadow-[0_0_50px_20px_rgba(252,211,77,0.3)]'
-              : activeThemeKey === 'day'
-              ? 'top-12 left-1/2 -translate-x-1/2 w-28 h-28 bg-amber-100 shadow-[0_0_80px_25px_rgba(254,243,199,0.35)]'
-              : 'top-28 left-2/3 w-24 h-24 bg-orange-400 shadow-[0_0_70px_22px_rgba(251,146,60,0.35)]'
-          }`} 
-        />
-
-        {/* Drifting comic clouds in day mode */}
-        {activeThemeKey === 'day' && (
-          <>
-            <div className="absolute top-12 left-[-150px] w-36 h-10 bg-white/40 rounded-full blur-[1px] animate-cloud-slow" />
-            <div className="absolute top-28 left-[-100px] w-48 h-12 bg-white/30 rounded-full blur-[0.8px] animate-cloud-medium" />
-            <div className="absolute top-6 left-[20%] w-24 h-8 bg-white/25 rounded-full blur-[1.2px] animate-cloud-fast" />
-          </>
-        )}
-        {activeThemeKey === 'sunset' && (
-          <div className="absolute top-24 left-[-100px] w-48 h-10 bg-rose-400/25 rounded-full blur-[1px] animate-cloud-slow" />
-        )}
-      </div>
+      <GameBackgroundRoot
+        useLevelBackground={gameBackground.useLevelBackground}
+        activeBackgroundLevel={gameBackground.activeBackgroundLevel}
+        activeThemeKey={gameBackground.activeThemeKey}
+        isMeadow={gameBackground.isMeadow}
+        isNightLike={gameBackground.isNightLike}
+        isDayLike={gameBackground.isDayLike}
+        starsConstellation={gameBackground.starsConstellation}
+        grassTufts={gameBackground.grassTufts}
+      />
 
       {/* Target + goal — compact unified dock */}
       <div
@@ -647,6 +529,7 @@ export default function App() {
           winCurrent={winProgress.current}
           winTotal={winProgress.total}
           showWin={canShowWinPanel}
+          weaponMode={weaponMode}
         />
       </div>
 
@@ -779,11 +662,14 @@ export default function App() {
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden" style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', willChange: 'transform' }}>
         <StickmanBombCanvas
           ref={canvasRef}
-          timeOfDay={canvasTimeOfDay}
+          timeOfDay={gameBackground.canvasTimeOfDay}
           isMuted={isMuted}
           targetScore={targetScore}
-          freezeSway={victoryCountdown !== null || stats.score >= targetScore}
+          previewEstateLevel={previewEstateLevel}
+          estateImageOverrides={estateImageOverrides}
+          freezeSway={gamePaused}
           counterDisplayStyle={counterDisplayStyle}
+          showCounter={showCounter}
           weaponMode={weaponMode}
           weaponSwitchKey={weaponSwitchKey}
           onWeaponModeChange={handleWeaponModeChange}
@@ -792,11 +678,11 @@ export default function App() {
             setVictoryCountdown(null);
             audioManager.playLose();
             void pushSessionToGlobalRank(score);
-            triggerFloatNotify(`☠️ Game over! Score: ${score}.`);
+            triggerFloatNotify(`☠️ Game over! Score: ${formatCounterLabel(score)}`);
           }}
           onMissPenalty={(remaining) => {
             triggerFloatNotify(
-              `⚠️ Miss! −${MISS_PENALTY_BOXES} points (${remaining} remaining)`,
+              `⚠️ Miss! −${formatCounterLabel(MISS_PENALTY_BOXES)} (${formatCounterLabel(remaining)} remaining)`,
             );
           }}
           onGameReset={() => {
@@ -823,26 +709,67 @@ export default function App() {
               {/* Target Score Configuration block */}
               <div className="mb-4 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">Target Goal (Blocks)</span>
-                  <span className="text-[10px] font-mono font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md">Default: 100</span>
+                  <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">Target Goal ($)</span>
+                  <span className="text-[10px] font-mono font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md">
+                    {MIN_TARGET_SCORE.toLocaleString()} … {MAX_TARGET_SCORE.toLocaleString()}
+                  </span>
                 </div>
                 <div className="bg-blue-50/50 p-2 rounded-xl border border-indigo-900/10 flex items-center gap-3 shadow-inner">
                   <span className="text-lg">🎯</span>
                   <input 
                     type="number" 
-                    min="1"
-                    max="999999"
+                    min={MIN_TARGET_SCORE}
+                    max={MAX_TARGET_SCORE}
                     value={targetScore} 
                     onChange={(e) => {
-                      const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                      const val = clampTargetScore(parseInt(e.target.value, 10) || 0);
                       setTargetScore(val);
-                      localStorage.setItem('stack_target_score', String(val));
+                      saveTargetScore(val);
                     }}
                     className="w-full bg-transparent border-0 outline-none font-black text-base text-indigo-950 focus:outline-none"
-                    placeholder="e.g., 5000"
+                    placeholder="e.g., 100 or -500"
                   />
                 </div>
               </div>
+
+              <BackgroundSettingsSection
+                targetScore={targetScore}
+                displayMode={gameBackground.displayMode}
+                atmosphereTheme={gameBackground.atmosphereTheme}
+                activeBackgroundLevel={gameBackground.activeBackgroundLevel}
+                onDisplayModeChange={(mode) => {
+                  gameBackground.handleDisplayModeChange(mode);
+                  audioManager.playPop();
+                }}
+                onAtmosphereThemeChange={(theme) => {
+                  gameBackground.handleAtmosphereThemeChange(theme);
+                  audioManager.playPop();
+                }}
+              />
+
+              <EstateSettingsSection
+                targetScore={targetScore}
+                activeEstateLevel={activeEstateLevel}
+                previewEstateLevel={previewEstateLevel}
+                estateImageOverrides={estateImageOverrides}
+                onPreviewEstateLevelChange={(level) => {
+                  setPreviewEstateLevel(level);
+                  audioManager.playPop();
+                }}
+                onEstateLevelImageChange={(level, dataUrl) => {
+                  setEstateLevelImage(level, dataUrl);
+                  setPreviewEstateLevel(level);
+                  audioManager.playPop();
+                }}
+                onEstateLevelImageReset={(level) => {
+                  resetEstateLevelImage(level);
+                  audioManager.playPop();
+                }}
+                onResetAllEstateLevelImages={() => {
+                  resetAllEstateLevelImages();
+                  audioManager.playPop();
+                }}
+              />
 
               {/* Win counter toggle */}
               <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
@@ -904,80 +831,39 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Custom Theme Color Block */}
-              <div className="mb-5 flex flex-col gap-1.5">
-                <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">Atmosphere Theme</span>
-                
-                <div className="grid grid-cols-2 gap-2 mt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleBackgroundThemeChange('meadow')}
-                    className={`py-2 px-2.5 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      backgroundTheme === 'meadow'
-                        ? 'bg-green-100/80 border-indigo-900 scale-[1.02]'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-4 h-4 rounded-full bg-gradient-to-tr from-sky-300 to-green-600 shadow" />
-                    <span>Meadow 🌿</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleBackgroundThemeChange('day')}
-                    className={`py-2 px-2.5 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      backgroundTheme === 'day'
-                        ? 'bg-blue-100/80 border-indigo-900 scale-[1.02]'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-4 h-4 rounded-full bg-gradient-to-tr from-sky-400 to-amber-200 shadow" />
-                    <span>Sky Day 🌤️</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleBackgroundThemeChange('cyber')}
-                    className={`py-2 px-2.5 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      backgroundTheme === 'cyber'
-                        ? 'bg-fuchsia-100/80 border-indigo-900 scale-[1.02]'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-4 h-4 rounded-full bg-gradient-to-tr from-purple-800 to-pink-500 shadow" />
-                    <span>Cyber Neon 🔮</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleBackgroundThemeChange('sunset')}
-                    className={`py-2 px-2.5 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      backgroundTheme === 'sunset'
-                        ? 'bg-rose-100/80 border-indigo-900 scale-[1.02]'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-4 h-4 rounded-full bg-gradient-to-tr from-purple-950 to-orange-400 shadow" />
-                    <span>Sunset Warm 🌇</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleBackgroundThemeChange('cosmic')}
-                    className={`py-2 px-2.5 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      backgroundTheme === 'cosmic'
-                        ? 'bg-slate-100/80 border-indigo-900 scale-[1.02]'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-4 h-4 rounded-full bg-gradient-to-tr from-slate-900 to-indigo-950 border border-indigo-400/30 shadow" />
-                    <span>Cosmic Deep 🌌</span>
-                  </button>
+              {/* Score counter visibility */}
+              <div className="mb-4 flex items-center justify-between gap-3 bg-slate-50/80 p-3 rounded-xl border border-indigo-900/10">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
+                    Hiển thị số đếm
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-900/50">
+                    {showCounter
+                      ? 'Bật — hiện số điểm bên trái màn hình'
+                      : 'Tắt — chỉ hiện tài sản (estate) ở giữa'}
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showCounter}
+                  onClick={() => handleShowCounterChange(!showCounter)}
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${
+                    showCounter
+                      ? 'border-indigo-500 bg-indigo-400'
+                      : 'border-slate-300 bg-slate-200'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
+                      showCounter ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Counter display style */}
-              <div className="mb-5 flex flex-col gap-1.5">
+              <div className={`mb-5 flex flex-col gap-1.5 ${showCounter ? '' : 'opacity-45 pointer-events-none'}`}>
                 <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
                   Counter Display Style
                 </span>
@@ -986,6 +872,7 @@ export default function App() {
                     <button
                       key={option.id}
                       type="button"
+                      disabled={!showCounter}
                       onClick={() => handleCounterDisplayStyleChange(option.id)}
                       className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
                         counterDisplayStyle === option.id
@@ -1009,15 +896,16 @@ export default function App() {
                 </div>
               </div>
 
+              <GameplayControlsSection
+                weaponMode={weaponMode}
+                weaponSwitchKey={weaponSwitchKey}
+              />
+
               {/* Weapon switch key */}
               <div className="mb-5 flex flex-col gap-1.5">
                 <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
                   Weapon Switch Key
                 </span>
-                <p className="text-[10px] font-bold text-indigo-900/50 leading-snug">
-                  Current: {weaponMode === 'gun' ? 'Gun' : 'Hammer'} — press [
-                  {formatWeaponSwitchKeyLabel(weaponSwitchKey)}] in-game to toggle
-                </p>
                 <div className="grid grid-cols-3 gap-2 mt-0.5">
                   {WEAPON_SWITCH_KEY_OPTIONS.map((option) => (
                     <button
@@ -1082,6 +970,7 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     handleResetEverything();
+                    setPreviewEstateLevel(null);
                     setShowSettingsModal(false);
                   }}
                   className="w-full bg-red-500 hover:bg-red-650 text-white font-black uppercase py-2.5 px-4 rounded-xl shadow-md active:translate-y-0.5 transition-all text-xs flex items-center justify-center gap-1.5"
@@ -1095,12 +984,55 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
+                  setPreviewEstateLevel(null);
                   setShowSettingsModal(false);
                   audioManager.playPop();
                 }}
                 className="w-full py-3 bg-indigo-900 hover:bg-indigo-950 text-white font-extrabold uppercase tracking-wide rounded-2xl transition-all duration-75 text-center text-xs shadow-md mt-1"
               >
                 CONFIRM & CLOSE
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DEFEAT DIALOG OVERLAY */}
+      <AnimatePresence>
+        {showDefeatModal && (
+          <div className="fixed inset-0 w-screen h-screen bg-red-950/95 backdrop-blur-md flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white border-4 border-red-900 p-8 rounded-[36px] max-w-sm w-full shadow-2xl text-red-950 text-center relative"
+            >
+              <span className="text-red-500 text-7xl block mb-2 drop-shadow-md">💀</span>
+              <h2 className="text-3xl font-black tracking-tight text-red-900 uppercase mt-2">
+                DEFEAT
+              </h2>
+              <p className="text-red-900/75 text-xs font-black tracking-widest uppercase mt-1 mb-5">
+                Score hit the negative target of {formatCounterLabel(getLoseTargetScore(targetScore))}!
+              </p>
+
+              <div className="bg-red-50 p-5 rounded-2xl border-2 border-red-900 shadow-[0_4px_0_#7f1d1d] mb-6">
+                <span className="text-[10px] font-black text-red-950/60 uppercase block">
+                  FINAL SCORE
+                </span>
+                <span className="text-3xl font-black text-red-600 block mt-1">
+                  {formatCounterLabel(stats.score)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDefeatModal(false);
+                  handleResetEverything();
+                }}
+                className="w-full bg-red-500 hover:bg-red-400 text-white border-2 border-red-900 font-extrabold uppercase tracking-wide py-4 px-6 rounded-2xl shadow-[0_6px_0_#7f1d1d] active:translate-y-1 active:shadow-none transition-all duration-100 text-sm"
+              >
+                TRY AGAIN 🔄
               </button>
             </motion.div>
           </div>
@@ -1120,7 +1052,7 @@ export default function App() {
               <span className="text-yellow-400 text-7xl block mb-2 drop-shadow-md animate-bounce">🏆</span>
               <h2 className="text-3xl font-black tracking-tight text-indigo-950 uppercase mt-2">VICTORY!</h2>
               <p className="text-indigo-900/75 text-xs font-black tracking-widest uppercase mt-1 mb-5">
-                Everlasting monument of {targetScore} blocks has been built!
+                Target of {formatCounterLabel(targetScore)} reached!
               </p>
 
               {winProgress.total > 0 && (
@@ -1136,7 +1068,7 @@ export default function App() {
               
               <div className="bg-yellow-100/50 p-5 rounded-2xl border-2 border-indigo-900 shadow-[0_4px_0_#1e1b4b] mb-6">
                 <span className="text-[10px] font-black text-indigo-950/60 uppercase block">FINAL SCORE</span>
-                <span className="text-3xl font-black text-emerald-600 block mt-1">{stats.score} blocks ✨</span>
+                <span className="text-3xl font-black text-emerald-600 block mt-1">{formatCounterLabel(stats.score)} ✨</span>
               </div>
 
               <button

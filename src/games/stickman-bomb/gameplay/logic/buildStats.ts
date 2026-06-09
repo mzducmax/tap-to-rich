@@ -15,6 +15,6 @@ export function buildStats(score: number, perfectStreak = 0): GameStats {
     score,
     highScore: nextHigh,
     perfectStreak,
-    totalBoxesStacked: Math.max(1, score),
+    totalBoxesStacked: Math.max(0, score),
   };
 }

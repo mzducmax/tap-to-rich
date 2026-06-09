@@ -4,16 +4,14 @@
  */
 
 import React from 'react';
-import { formatWeaponSwitchKeyLabel, type WeaponMode } from '../config/weaponSettings';
+import type { WeaponMode } from '../config/weaponSettings';
 
 export function WeaponModeBadge({
   mode,
-  switchKeyCode,
 }: {
   mode: WeaponMode;
-  switchKeyCode: string;
+  switchKeyCode?: string;
 }) {
-  const switchLabel = formatWeaponSwitchKeyLabel(switchKeyCode);
   const isGun = mode === 'gun';
 
   return (
@@ -23,7 +21,6 @@ export function WeaponModeBadge({
       </span>
       <span className="weapon-mode-badge-copy">
         <span className="weapon-mode-badge-title">{isGun ? 'Gun' : 'Hammer'}</span>
-        <span className="weapon-mode-badge-hint">[{switchLabel}] switch</span>
       </span>
     </div>
   );

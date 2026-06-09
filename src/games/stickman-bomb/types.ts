@@ -6,6 +6,7 @@
 import type { GameStats, TimeOfDay } from '../../types';
 import type { CounterDisplayStyle } from './gameplay';
 import type { WeaponMode } from './gameplay';
+import type { EstateLevel, EstateImageOverrides } from './estate';
 
 export const BOMB_PENALTY = 10;
 export const MISS_PENALTY_BOXES = 10;
@@ -18,8 +19,11 @@ export interface StickmanBombCanvasProps {
   onMissPenalty?: (remainingScore: number) => void;
   isMuted: boolean;
   targetScore: number;
+  previewEstateLevel?: EstateLevel | null;
+  estateImageOverrides?: EstateImageOverrides;
   freezeSway?: boolean;
   counterDisplayStyle?: CounterDisplayStyle;
+  showCounter?: boolean;
   weaponMode?: WeaponMode;
   weaponSwitchKey?: string;
   onWeaponModeChange?: (mode: WeaponMode) => void;

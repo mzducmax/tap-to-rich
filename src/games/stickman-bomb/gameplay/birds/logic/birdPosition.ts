@@ -38,11 +38,15 @@ export function computeBirdScreenRect(
   layerWidth: number,
   layerHeight: number,
 ): BirdScreenRect {
-  const leftX =
+  const trackX =
     layerWidth * (BIRD_CROSS_START + progress * (BIRD_CROSS_END - BIRD_CROSS_START));
-  const width = BIRD_RENDER_W * bird.scale;
-  const height = BIRD_RENDER_H * bird.scale;
-  const topY = layerHeight * (bird.topPercent / 100);
+  const layoutW = BIRD_RENDER_W;
+  const layoutH = BIRD_RENDER_H;
+  const width = layoutW * bird.scale;
+  const height = layoutH * bird.scale;
+  // CSS scales the sprite from its center — shift the visual box to match.
+  const leftX = trackX + layoutW * (1 - bird.scale) / 2;
+  const topY = layerHeight * (bird.topPercent / 100) + layoutH * (1 - bird.scale) / 2;
   const centerX = leftX + width / 2;
   const centerY = topY + height / 2;
   const bottomY = topY + height;
@@ -50,10 +54,10 @@ export function computeBirdScreenRect(
   return { leftX, topY, width, height, centerX, centerY, bottomY };
 }
 
-/** Duck flies left — tail/butt sits on the right edge of the sprite box. */
+/** Duck flies left — tail/butt sits on the trailing (right) edge of the sprite box. */
 export function computeDuckButtPoint(rect: BirdScreenRect): { x: number; y: number } {
   return {
-    x: rect.leftX + rect.width * (0.8 + Math.random() * 0.1),
+    x: rect.leftX + rect.width * (0.82 + Math.random() * 0.08),
     y: rect.topY + rect.height * (0.66 + Math.random() * 0.12),
   };
 }

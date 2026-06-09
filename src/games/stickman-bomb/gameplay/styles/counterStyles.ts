@@ -83,6 +83,19 @@ export const counterStylesStick = `
     flex-shrink: 0;
   }
 
+  .digit-sign-stick {
+    width: 36px;
+    flex-shrink: 0;
+  }
+
+  .digit-sign-stick .stick-digit-glyph path {
+    fill: none;
+    stroke: var(--stick);
+    stroke-width: 4.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .digit-strip {
     transition: transform 0.38s cubic-bezier(0.34, 1.2, 0.64, 1);
     will-change: transform;

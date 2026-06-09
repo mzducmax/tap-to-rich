@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GAMEPLAY_CYCLE_MS } from '../../config/gameplayCycle';
+import { GAMEPLAY_CYCLE_MS, GAMEPLAY_INITIAL_DELAY_MS } from '../../config/gameplayCycle';
 
 export const SHEEP_INTERVAL_MS = GAMEPLAY_CYCLE_MS;
 export const SHEEP_WARNING_MS = 2_000;
@@ -23,7 +23,9 @@ export const SHEEP_WAVE_DURATION_MS = (() => {
 export type SheepPhase = 'idle' | 'warning' | 'crossing';
 
 export function getSheepPhase(elapsedMs: number): SheepPhase {
-  const cyclePos = elapsedMs % SHEEP_INTERVAL_MS;
+  if (elapsedMs < GAMEPLAY_INITIAL_DELAY_MS) return 'idle';
+
+  const cyclePos = (elapsedMs - GAMEPLAY_INITIAL_DELAY_MS) % SHEEP_INTERVAL_MS;
 
   if (cyclePos < SHEEP_WARNING_MS) return 'warning';
   if (cyclePos < SHEEP_WARNING_MS + SHEEP_WAVE_DURATION_MS) return 'crossing';

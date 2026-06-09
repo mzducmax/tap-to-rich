@@ -4,7 +4,7 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-import duckSpriteUrl from '../../ducks-img.png';
+import duckSpriteUrl from '../assets/ducks-img.png';
 
 export const DUCK_SPRITE_URL = duckSpriteUrl;
 

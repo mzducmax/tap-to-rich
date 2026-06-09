@@ -42,6 +42,20 @@ export const counterStylesClassic = `
     flex-shrink: 0;
   }
 
+  .digit-sign {
+    height: 100px;
+    width: 42px;
+    flex-shrink: 0;
+    font-size: 90px;
+    font-weight: 900;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--line-color);
+    line-height: 1;
+  }
+
   .digit-strip {
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   }
