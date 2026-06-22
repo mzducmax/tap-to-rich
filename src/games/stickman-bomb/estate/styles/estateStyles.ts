@@ -15,6 +15,13 @@ export const estateSceneStyles = `
     overflow: visible;
   }
 
+  .estate-sway {
+    position: relative;
+    z-index: 1;
+    transform-origin: bottom center;
+    will-change: transform;
+  }
+
   .estate-stack {
     position: relative;
     display: flex;
@@ -25,11 +32,11 @@ export const estateSceneStyles = `
   .estate-island {
     position: absolute;
     left: 50%;
-    top: 93%;
+    bottom: 7%;
     width: clamp(343px, 66vw, 595px);
     max-width: none;
     height: auto;
-    transform: translate(-50%, -38%);
+    transform: translate(-50%, 62%);
     object-fit: contain;
     pointer-events: none;
     z-index: 0;
@@ -38,22 +45,19 @@ export const estateSceneStyles = `
 `;
 
 export const estateIconStyles = `
-  .estate-sway {
-    position: relative;
-    z-index: 1;
-    margin-top: clamp(36px, 5.5vh, 60px);
-    transform-origin: bottom center;
-    will-change: transform;
-  }
-
   .estate-icon {
     position: relative;
+    top: clamp(36px, 4vh, 72px);
     width: clamp(200px, 38vw, 340px);
     height: clamp(200px, 38vw, 340px);
     filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.42));
     overflow: visible;
     transform-origin: bottom center;
     will-change: transform;
+  }
+
+  .estate-icon--seat-up {
+    top: clamp(22px, 2.5vh, 58px);
   }
 
   .estate-building-image {

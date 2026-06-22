@@ -8,6 +8,8 @@ export type { HammerImpactPayload } from './components/HammerCursor';
 export { NumberDisplay } from './components/NumberDisplay';
 export { GameplayControlsSection } from './components/GameplayControlsSection';
 export { WeaponModeBadge, weaponModeBadgeStyles } from './components/WeaponModeBadge';
+export { SeasonSessionBadge, seasonSessionBadgeStyles } from './components/SeasonSessionBadge';
+export { EstateScoreFloat } from './components/EstateScoreFloat';
 
 export { useGameplayScore } from './hooks/useGameplayScore';
 export { useShake, useEstateHitShake } from './hooks/useShake';
@@ -23,9 +25,15 @@ export {
 } from './config/gameLayers';
 export { gamePausedStyles } from './config/pauseStyles';
 export { setGameplayPaused, resetGameplayPauseClock } from './logic/gameplayPause';
-export { GAMEPLAY_CYCLE_MS, BIRD_DELAY_AFTER_SHEEP_MS, GAMEPLAY_INITIAL_DELAY_MS } from './config/gameplayCycle';
 export {
+  clampHammerEstateReward,
   getExpandedHitRect,
+  HAMMER_ESTATE_REWARD,
+  HAMMER_ESTATE_REWARD_DEFAULT,
+  loadHammerEstateReward,
+  MAX_HAMMER_ESTATE_REWARD,
+  MIN_HAMMER_ESTATE_REWARD,
+  saveHammerEstateReward,
   isClickInHitZone,
   isPointInHitZone,
   isStrikeInHitZone,
@@ -50,4 +58,4 @@ export {
 } from './config/weaponSettings';
 export type { WeaponMode } from './config/weaponSettings';
 
-export type { PenaltyFloat, SheepBonusFloat, BirdBonusFloat } from './types/gameplayTypes';
+export type { PenaltyFloat, SheepBonusFloat, BirdBonusFloat, MoleBonusFloat } from './types/gameplayTypes';

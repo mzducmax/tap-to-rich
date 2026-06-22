@@ -3,14 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  BIRD_DELAY_AFTER_SHEEP_MS,
-  GAMEPLAY_CYCLE_MS,
-  GAMEPLAY_INITIAL_DELAY_MS,
-} from '../../config/gameplayCycle';
-import { SHEEP_WARNING_MS, SHEEP_WAVE_DURATION_MS } from '../../sheep/config/sheepConfig';
-
-export const BIRD_INTERVAL_MS = GAMEPLAY_CYCLE_MS;
 export const BIRD_COUNT_MIN = 16;
 export const BIRD_COUNT_MAX = 22;
 export const BIRD_POOP_PENALTY = 10;
@@ -32,18 +24,3 @@ export const BIRD_FLOCK_DURATION_MS = (() => {
 })();
 
 export type BirdPhase = 'idle' | 'crossing';
-
-export function getBirdPhase(elapsedMs: number): BirdPhase {
-  if (elapsedMs < GAMEPLAY_INITIAL_DELAY_MS) return 'idle';
-
-  const cyclePos = (elapsedMs - GAMEPLAY_INITIAL_DELAY_MS) % BIRD_INTERVAL_MS;
-  const sheepCrossingEnd = SHEEP_WARNING_MS + SHEEP_WAVE_DURATION_MS;
-
-  if (cyclePos < sheepCrossingEnd) return 'idle';
-
-  const flockStart = SHEEP_WARNING_MS + BIRD_DELAY_AFTER_SHEEP_MS;
-  const flockEnd = flockStart + BIRD_FLOCK_DURATION_MS;
-
-  if (cyclePos >= flockStart && cyclePos < flockEnd) return 'crossing';
-  return 'idle';
-}

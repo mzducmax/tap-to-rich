@@ -4,22 +4,36 @@
  */
 
 import React, { memo, useMemo } from 'react';
+import type { SheepDirection } from '../config/sheepConfig';
 import { buildSheepFormation, type SheepSpawn } from '../logic/sheepFormation';
 import { sheepStyles } from '../styles/sheepStyles';
 
 type SheepUnitProps = {
   sheep: SheepSpawn;
+  direction: SheepDirection;
   registerSheepRef: (id: number, node: HTMLDivElement | null) => void;
 };
 
-const SheepUnit = memo(function SheepUnit({ sheep, registerSheepRef }: SheepUnitProps) {
+const SheepUnit = memo(function SheepUnit({ sheep, direction, registerSheepRef }: SheepUnitProps) {
   const fontSize = `${2.15 + sheep.scale * 1.1}rem`;
-  const zIndex = Math.round(10 + sheep.depth * 20);
+  const zIndex = Math.round(8 + sheep.depth * 18);
+  const crossClass = [
+    'sheep-unit',
+    'sheep-unit-cross',
+    direction === 'rtl' ? 'sheep-unit-cross-rtl' : '',
+    sheep.isRear ? 'sheep-unit-rear' : '',
+    sheep.variant === 'gold' ? 'sheep-unit-gold' : '',
+    sheep.variant === 'pink' ? 'sheep-unit-pink' : '',
+    sheep.variant === 'black' ? 'sheep-unit-black' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div
       ref={(node) => registerSheepRef(sheep.id, node)}
-      className="sheep-unit sheep-unit-cross"
+      className={crossClass}
+      data-sheep-variant={sheep.variant}
       style={{
         top: `${sheep.topPercent}%`,
         zIndex,
@@ -39,10 +53,11 @@ const SheepUnit = memo(function SheepUnit({ sheep, registerSheepRef }: SheepUnit
 
 type SheepHerdProps = {
   waveId: number;
+  direction: SheepDirection;
   registerSheepRef: (id: number, node: HTMLDivElement | null) => void;
 };
 
-export function SheepHerd({ waveId, registerSheepRef }: SheepHerdProps) {
+export function SheepHerd({ waveId, direction, registerSheepRef }: SheepHerdProps) {
   const flock = useMemo(() => buildSheepFormation(waveId), [waveId]);
 
   return (
@@ -53,6 +68,7 @@ export function SheepHerd({ waveId, registerSheepRef }: SheepHerdProps) {
           <SheepUnit
             key={sheep.id}
             sheep={sheep}
+            direction={direction}
             registerSheepRef={registerSheepRef}
           />
         ))}

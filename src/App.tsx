@@ -37,6 +37,11 @@ import {
   loadTargetScore,
   saveTargetScore,
   clampTargetScore,
+  clampHammerEstateReward,
+  loadHammerEstateReward,
+  saveHammerEstateReward,
+  MIN_HAMMER_ESTATE_REWARD,
+  MAX_HAMMER_ESTATE_REWARD,
   hasReachedWinTarget,
   hasReachedLoseTarget,
   getLoseTargetScore,
@@ -71,6 +76,8 @@ type ViewerGiftStats = {
 
 export default function App() {
   const canvasRef = useRef<StickmanBombCanvasHandle | null>(null);
+  const balancePanelRef = useRef<HTMLDivElement | null>(null);
+  const balanceDockRef = useRef<HTMLDivElement | null>(null);
   const viewerStatsRef = useRef<Map<string, ViewerGiftStats>>(new Map());
   const [loginRequest, setLoginRequest] = useState<LoginRequest | null>(null);
 
@@ -118,6 +125,7 @@ export default function App() {
 
   const [weaponMode, setWeaponMode] = useState<WeaponMode>(() => loadWeaponMode());
   const [weaponSwitchKey, setWeaponSwitchKey] = useState(() => loadWeaponSwitchKey());
+  const [hammerEstateReward, setHammerEstateReward] = useState(() => loadHammerEstateReward());
 
   const gamePaused =
     showSettingsModal ||
@@ -520,10 +528,12 @@ export default function App() {
 
       {/* Target + goal — compact unified dock */}
       <div
+        ref={balanceDockRef}
         onClick={(e) => e.stopPropagation()}
-        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 w-full max-w-xs px-3 pointer-events-auto select-none animate-fade-in"
+        className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 w-full max-w-md px-3 pointer-events-auto select-none animate-fade-in"
       >
         <TargetGoalDock
+          shellRef={balancePanelRef}
           score={stats.score}
           targetScore={targetScore}
           winCurrent={winProgress.current}
@@ -673,6 +683,7 @@ export default function App() {
           weaponMode={weaponMode}
           weaponSwitchKey={weaponSwitchKey}
           onWeaponModeChange={handleWeaponModeChange}
+          hammerEstateReward={hammerEstateReward}
           onStatsChange={handleStatsChange}
           onGameOver={(score) => {
             setVictoryCountdown(null);
@@ -689,6 +700,8 @@ export default function App() {
             setVictoryCountdown(null);
             triggerFloatNotify('✨ New round started!');
           }}
+          balancePanelRef={balancePanelRef}
+          balanceDockRef={balanceDockRef}
         />
       </div>
 
@@ -896,9 +909,41 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Hammer estate reward */}
+              <div className="mb-4 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
+                    Điểm mỗi cú búa ($)
+                  </span>
+                  <span className="text-[10px] font-mono font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md">
+                    {MIN_HAMMER_ESTATE_REWARD.toLocaleString()} … {MAX_HAMMER_ESTATE_REWARD.toLocaleString()}
+                  </span>
+                </div>
+                <div className="bg-blue-50/50 p-2 rounded-xl border border-indigo-900/10 flex items-center gap-3 shadow-inner">
+                  <span className="text-lg">🔨</span>
+                  <input
+                    type="number"
+                    min={MIN_HAMMER_ESTATE_REWARD}
+                    max={MAX_HAMMER_ESTATE_REWARD}
+                    value={hammerEstateReward}
+                    onChange={(e) => {
+                      const val = clampHammerEstateReward(parseInt(e.target.value, 10) || 0);
+                      setHammerEstateReward(val);
+                      saveHammerEstateReward(val);
+                    }}
+                    className="w-full bg-transparent border-0 outline-none font-black text-base text-indigo-950 focus:outline-none"
+                    placeholder="e.g., 1"
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-indigo-900/50">
+                  Số cộng mỗi lần búa đập trúng nhà (estate)
+                </span>
+              </div>
+
               <GameplayControlsSection
                 weaponMode={weaponMode}
                 weaponSwitchKey={weaponSwitchKey}
+                hammerEstateReward={hammerEstateReward}
               />
 
               {/* Weapon switch key */}

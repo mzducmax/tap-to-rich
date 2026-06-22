@@ -67,3 +67,10 @@ export function scoreToEstateLevel(
 ): EstateLevel {
   return scoreToBackgroundLevel(score, targetScore);
 }
+
+/** Levels whose building art sits low — nudge up slightly on the island. */
+export const ESTATE_LEVELS_SEAT_UP: readonly EstateLevel[] = [3, 4, 5];
+
+export function estateNeedsSeatUp(level: EstateLevel): boolean {
+  return (ESTATE_LEVELS_SEAT_UP as readonly number[]).includes(level);
+}

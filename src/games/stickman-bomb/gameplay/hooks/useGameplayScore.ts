@@ -11,9 +11,15 @@ import {
 import { audioManager } from '../../../../utils/audio';
 import { buildStats } from '../logic/buildStats';
 import { buildCounterTokens } from '../logic/formatCounterDisplay';
-import { SHEEP_REWARD } from '../sheep';
+import {
+  getSheepHitDelta,
+  SHEEP_BLACK_PENALTY,
+  type SheepVariant,
+} from '../sheep';
 import { BIRD_SHOOT_REWARD } from '../birds';
-import type { PenaltyFloat } from '../types/gameplayTypes';
+import { MOLE_REWARD } from '../moles';
+import { HAMMER_ESTATE_REWARD_DEFAULT } from '../config/hammerConfig';
+import type { PenaltyFloat, ScoreFloatSource } from '../types/gameplayTypes';
 
 type UseGameplayScoreOptions = {
   isMuted: boolean;
@@ -21,11 +27,23 @@ type UseGameplayScoreOptions = {
   shake: (intensity: number, duration?: number) => Promise<void>;
   targetScore?: number;
   freezeSway?: boolean;
+  hammerEstateReward?: number;
 };
 
 function clampToScoreBounds(value: number, targetScore: number): number {
   return clampScoreToBounds(value, targetScore);
 }
+
+type ScoreDeltaOptions = {
+  showPenaltyFloat?: boolean;
+  showScoreFloat?: boolean;
+  source?: ScoreFloatSource;
+  sheepVariant?: SheepVariant;
+};
+
+type ScoreFloatMeta = {
+  sheepVariant?: SheepVariant;
+};
 
 export function useGameplayScore({
   isMuted,
@@ -33,6 +51,7 @@ export function useGameplayScore({
   shake,
   targetScore = Number.POSITIVE_INFINITY,
   freezeSway = false,
+  hammerEstateReward = HAMMER_ESTATE_REWARD_DEFAULT,
 }: UseGameplayScoreOptions) {
   const [count, setCount] = useState(0);
   const [penaltyFloats, setPenaltyFloats] = useState<PenaltyFloat[]>([]);
@@ -40,8 +59,10 @@ export function useGameplayScore({
   const countRef = useRef(0);
   const targetScoreRef = useRef(targetScore);
   const freezeSwayRef = useRef(freezeSway);
+  const hammerEstateRewardRef = useRef(hammerEstateReward);
   targetScoreRef.current = targetScore;
   freezeSwayRef.current = freezeSway;
+  hammerEstateRewardRef.current = hammerEstateReward;
   countRef.current = count;
 
   const isAtTarget = useCallback((value: number) => {
@@ -56,9 +77,17 @@ export function useGameplayScore({
     [onStatsChange],
   );
 
-  const showPenaltyFloat = useCallback((amount: number) => {
+  const showScoreFloat = useCallback((
+    delta: number,
+    source: ScoreFloatSource,
+    meta?: ScoreFloatMeta,
+  ) => {
+    if (delta === 0) return;
     const id = ++penaltyFloatIdRef.current;
-    setPenaltyFloats((prev) => [...prev, { id, amount }]);
+    setPenaltyFloats((prev) => [
+      ...prev,
+      { id, delta, source, sheepVariant: meta?.sheepVariant },
+    ]);
   }, []);
 
   const removePenaltyFloat = useCallback((id: number) => {
@@ -70,7 +99,7 @@ export function useGameplayScore({
       delta: number,
       shakeIntensity: number,
       shakeDuration = 0.2,
-      options?: { showPenaltyFloat?: boolean },
+      options?: ScoreDeltaOptions,
     ) => {
       if (delta > 0 && isAtTarget(countRef.current)) return;
 
@@ -79,42 +108,68 @@ export function useGameplayScore({
         const next = clampToScoreBounds(prev + delta, targetScoreRef.current);
         if (next === prev) return prev;
 
-        if (delta < 0 && options?.showPenaltyFloat !== false) {
-          showPenaltyFloat(Math.abs(delta));
+        const appliedDelta = next - prev;
+
+        if (
+          options?.showScoreFloat !== false &&
+          (appliedDelta > 0 || options?.showPenaltyFloat !== false)
+        ) {
+          showScoreFloat(appliedDelta, options?.source ?? 'system', {
+            sheepVariant: options?.sheepVariant,
+          });
         }
         emitStats(next);
         return next;
       });
       void shake(shakeIntensity, shakeDuration);
     },
-    [emitStats, isAtTarget, shake, showPenaltyFloat],
+    [emitStats, isAtTarget, shake, showScoreFloat],
   );
 
-  const increment = useCallback(() => {
+  const increment = useCallback((options?: { source?: ScoreFloatSource; showScoreFloat?: boolean }) => {
     if (isAtTarget(countRef.current)) return;
 
+    const reward = hammerEstateRewardRef.current;
     setCount((prev) => {
-      const next = clampToScoreBounds(prev + 1, targetScoreRef.current);
+      const next = clampToScoreBounds(prev + reward, targetScoreRef.current);
+      if (next !== prev && options?.showScoreFloat !== false) {
+        showScoreFloat(next - prev, options?.source ?? 'hammer');
+      }
       emitStats(next);
       return next;
     });
     void shake(5);
-    if (!isMuted) audioManager.playPop();
-  }, [emitStats, isAtTarget, isMuted, shake]);
+    if (!isMuted) audioManager.playPop(reward);
+  }, [emitStats, isAtTarget, isMuted, shake, showScoreFloat]);
 
-  const applySheepBonus = useCallback(() => {
+  const applySheepHit = useCallback((
+    variant: SheepVariant,
+    source: ScoreFloatSource = 'sheep',
+  ) => {
+    if (variant === 'black') {
+      applyDelta(-SHEEP_BLACK_PENALTY, 10, 0.35, { source, sheepVariant: variant });
+      if (!isMuted) audioManager.playMiss();
+      return;
+    }
+
     if (isAtTarget(countRef.current)) return;
 
+    const reward = getSheepHitDelta(variant);
     setCount((prev) => {
-      const next = clampToScoreBounds(prev + SHEEP_REWARD, targetScoreRef.current);
-      if (next !== prev) emitStats(next);
+      const next = clampToScoreBounds(prev + reward, targetScoreRef.current);
+      if (next !== prev) {
+        showScoreFloat(next - prev, source, { sheepVariant: variant });
+        emitStats(next);
+      }
       return next;
     });
-    void shake(8);
-    if (!isMuted) audioManager.playPop(SHEEP_REWARD);
-  }, [emitStats, isAtTarget, isMuted, shake]);
+    const shakeIntensity =
+      variant === 'gold' ? 11 : variant === 'pink' ? 9 : 8;
+    void shake(shakeIntensity);
+    if (!isMuted) audioManager.playPop(reward);
+  }, [applyDelta, emitStats, isAtTarget, isMuted, shake, showScoreFloat]);
 
-  const applyBirdBonus = useCallback(() => {
+  const applyBirdBonus = useCallback((source: ScoreFloatSource = 'bird') => {
     if (isAtTarget(countRef.current)) return;
 
     setCount((prev) => {
@@ -122,12 +177,30 @@ export function useGameplayScore({
         prev + BIRD_SHOOT_REWARD,
         targetScoreRef.current,
       );
-      if (next !== prev) emitStats(next);
+      if (next !== prev) {
+        showScoreFloat(next - prev, source);
+        emitStats(next);
+      }
       return next;
     });
     void shake(7);
     if (!isMuted) audioManager.playBirdHit();
-  }, [emitStats, isAtTarget, isMuted, shake]);
+  }, [emitStats, isAtTarget, isMuted, shake, showScoreFloat]);
+
+  const applyMoleBonus = useCallback((source: ScoreFloatSource = 'mole') => {
+    if (isAtTarget(countRef.current)) return;
+
+    setCount((prev) => {
+      const next = clampToScoreBounds(prev + MOLE_REWARD, targetScoreRef.current);
+      if (next !== prev) {
+        showScoreFloat(next - prev, source);
+        emitStats(next);
+      }
+      return next;
+    });
+    void shake(9);
+    if (!isMuted) audioManager.playPop(MOLE_REWARD);
+  }, [emitStats, isAtTarget, isMuted, shake, showScoreFloat]);
 
   const resetScore = useCallback(() => {
     setPenaltyFloats([]);
@@ -142,11 +215,13 @@ export function useGameplayScore({
     counterTokens,
     penaltyFloats,
     increment,
-    applySheepBonus,
+    applySheepHit,
     applyBirdBonus,
+    applyMoleBonus,
     applyDelta,
     resetScore,
     removePenaltyFloat,
     emitStats,
+    showScoreFloat,
   };
 }

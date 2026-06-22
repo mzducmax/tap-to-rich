@@ -4,12 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import {
-  BIRD_FLOCK_DURATION_MS,
-  getBirdPhase,
-  SPLAT_LIFETIME_MS,
-  type BirdPhase,
-} from '../config/birdConfig';
+import { BIRD_FLOCK_DURATION_MS, type BirdPhase } from '../config/birdConfig';
 import { buildBirdFlock, type BirdSpawn } from '../logic/buildBirdFlock';
 import { hitTestBirdAtPoint, isDuckReadyToDropPoop } from '../logic/birdHitTest';
 import {
@@ -42,7 +37,6 @@ type UseBirdFlockOptions = {
   gameplayTargetRef: RefObject<HTMLElement | null>;
   containerRef: RefObject<HTMLElement | null>;
   onPoopHitCounter: () => void;
-  sheepCrossing: boolean;
 };
 
 export function useBirdFlock({
@@ -50,7 +44,6 @@ export function useBirdFlock({
   gameplayTargetRef,
   containerRef,
   onPoopHitCounter,
-  sheepCrossing,
 }: UseBirdFlockOptions) {
   const [phase, setPhase] = useState<BirdPhase>('idle');
   const [waveId, setWaveId] = useState(0);
@@ -60,11 +53,9 @@ export function useBirdFlock({
   const [poopPenaltyFloats, setPoopPenaltyFloats] = useState<BirdPoopPenaltyFloat[]>([]);
   const [hitEffects, setHitEffects] = useState<BirdHitEffect[]>([]);
 
-  const cycleStartRef = useRef(Date.now());
   const pausedAtRef = useRef<number | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
-  const prevPhaseRef = useRef<BirdPhase>('idle');
   const waveStartMsRef = useRef(0);
   const waveIdRef = useRef(0);
   const flockRef = useRef<BirdSpawn[]>([]);
@@ -79,7 +70,7 @@ export function useBirdFlock({
   const hitEffectIdRef = useRef(0);
   const onPoopHitCounterRef = useRef(onPoopHitCounter);
   onPoopHitCounterRef.current = onPoopHitCounter;
-  const forcedCrossingUntilRef = useRef(0);
+  const crossingUntilRef = useRef(0);
 
   const beginCrossingWave = useCallback(() => {
     const nextWave = waveIdRef.current + 1;
@@ -88,7 +79,6 @@ export function useBirdFlock({
     flockRef.current = buildBirdFlock(nextWave);
     setWaveId(nextWave);
     setPhase('crossing');
-    prevPhaseRef.current = 'crossing';
     hitIdsRef.current = new Set();
     setFallingPoops([]);
     setSplats([]);
@@ -100,13 +90,11 @@ export function useBirdFlock({
   }, []);
 
   const resetCycle = useCallback(() => {
-    cycleStartRef.current = Date.now();
     pausedAtRef.current = null;
-    prevPhaseRef.current = 'idle';
     waveStartMsRef.current = 0;
     waveIdRef.current = 0;
     flockRef.current = [];
-    forcedCrossingUntilRef.current = 0;
+    crossingUntilRef.current = 0;
     setPhase('idle');
     setWaveId(0);
     hitIdsRef.current = new Set();
@@ -119,12 +107,12 @@ export function useBirdFlock({
     birdRefs.current.clear();
   }, []);
 
-  const triggerTestWave = useCallback(() => {
-    if (!active || sheepCrossing) return false;
-    forcedCrossingUntilRef.current = Date.now() + BIRD_FLOCK_DURATION_MS;
+  const triggerWave = useCallback(() => {
+    if (!active || Date.now() < crossingUntilRef.current) return false;
+    crossingUntilRef.current = Date.now() + BIRD_FLOCK_DURATION_MS;
     beginCrossingWave();
     return true;
-  }, [active, beginCrossingWave, sheepCrossing]);
+  }, [active, beginCrossingWave]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -152,7 +140,7 @@ export function useBirdFlock({
     if (pausedAtRef.current !== null) {
       const resumedAt = Date.now();
       shiftAnchorsForPause(
-        [cycleStartRef, waveStartMsRef, forcedCrossingUntilRef],
+        [waveStartMsRef, crossingUntilRef],
         pausedAtRef.current,
         resumedAt,
       );
@@ -160,29 +148,19 @@ export function useBirdFlock({
     }
 
     const tick = () => {
-      const now = Date.now();
-      const forced = now < forcedCrossingUntilRef.current;
-      const cyclePhase = getBirdPhase(now - cycleStartRef.current);
-      const nextPhase = forced ? 'crossing' : cyclePhase;
-
-      if (nextPhase === 'crossing' && prevPhaseRef.current !== 'crossing') {
-        beginCrossingWave();
-      } else if (nextPhase !== 'crossing') {
+      if (crossingUntilRef.current > 0 && Date.now() >= crossingUntilRef.current) {
+        crossingUntilRef.current = 0;
         setPhase('idle');
-        prevPhaseRef.current = 'idle';
-        return;
       }
-
-      prevPhaseRef.current = nextPhase;
     };
 
     tick();
     const intervalId = window.setInterval(tick, 80);
     return () => window.clearInterval(intervalId);
-  }, [active, beginCrossingWave]);
+  }, [active]);
 
   useEffect(() => {
-    if (!active || phase !== 'crossing' || sheepCrossing) return;
+    if (!active || phase !== 'crossing') return;
 
     const tryDropPoops = () => {
       const target = gameplayTargetRef.current;
@@ -245,7 +223,7 @@ export function useBirdFlock({
 
     const poopIntervalId = window.setInterval(tryDropPoops, 120);
     return () => window.clearInterval(poopIntervalId);
-  }, [active, gameplayTargetRef, containerRef, phase, sheepCrossing]);
+  }, [active, gameplayTargetRef, containerRef, phase]);
 
   const registerBirdRef = useCallback((id: number, node: HTMLDivElement | null) => {
     if (node) birdRefs.current.set(id, node);
@@ -271,7 +249,7 @@ export function useBirdFlock({
 
   const tryHitBird = useCallback(
     (container: HTMLElement, x: number, y: number): boolean => {
-      if (phase !== 'crossing' || sheepCrossing) return false;
+      if (phase !== 'crossing') return false;
 
       const flock = flockRef.current;
       if (flock.length === 0) return false;
@@ -329,7 +307,7 @@ export function useBirdFlock({
       showBonusFloat();
       return true;
     },
-    [phase, sheepCrossing, showBonusFloat, containerRef, gameplayTargetRef],
+    [phase, showBonusFloat, containerRef, gameplayTargetRef],
   );
 
   return {
@@ -347,6 +325,6 @@ export function useBirdFlock({
     removePoopPenaltyFloat,
     removeHitEffect,
     resetCycle,
-    triggerTestWave,
+    triggerWave,
   };
 }

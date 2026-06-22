@@ -3,6 +3,39 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { SHEEP_SCORE_FLOAT_THEMES } from '../config/sheepScoreFloatTheme';
+
+const labelBase = `
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Arial Rounded MT Bold", "Nunito", "Trebuchet MS", sans-serif;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 0.14rem 0.62rem;
+  border-radius: 999px;
+  paint-order: stroke fill;
+  -webkit-text-stroke-width: 1.75px;
+  line-height: 1.1;
+  z-index: 2;
+`;
+
+function labelCss(variant: keyof typeof SHEEP_SCORE_FLOAT_THEMES, selector: string) {
+  const theme = SHEEP_SCORE_FLOAT_THEMES[variant];
+  return `
+  ${selector} {
+    ${labelBase}
+    font-size: ${theme.fontSize};
+    color: ${theme.color};
+    -webkit-text-stroke-color: ${theme.stroke};
+    text-shadow: ${theme.shadow};
+    background: ${theme.bg};
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  }`;
+}
+
 export const sheepHitBurstStyles = `
   .sheep-hit-burst-root {
     position: absolute;
@@ -44,16 +77,38 @@ export const sheepHitBurstStyles = `
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
   }
 
-  .sheep-hit-burst-label {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translateX(-50%);
-    font-family: ui-monospace, 'Courier New', monospace;
-    font-size: 1.35rem;
-    font-weight: 900;
-    color: #fef3c7;
-    text-shadow: 0 0 12px rgba(251, 191, 36, 0.85), 0 2px 0 #92400e;
-    white-space: nowrap;
+  ${labelCss('white', '.sheep-hit-burst-label')}
+
+  .sheep-hit-burst-root-gold .sheep-hit-burst-ring {
+    border-color: rgba(250, 204, 21, 0.95);
+    box-shadow: 0 0 24px rgba(234, 179, 8, 0.75);
   }
+
+  .sheep-hit-burst-root-gold .sheep-hit-burst-flash {
+    background: radial-gradient(circle, rgba(254, 240, 138, 0.95) 0%, rgba(234, 179, 8, 0.4) 55%, transparent 72%);
+  }
+
+  ${labelCss('gold', '.sheep-hit-burst-root-gold .sheep-hit-burst-label')}
+
+  .sheep-hit-burst-root-pink .sheep-hit-burst-ring {
+    border-color: rgba(244, 114, 182, 0.95);
+    box-shadow: 0 0 22px rgba(236, 72, 153, 0.7);
+  }
+
+  .sheep-hit-burst-root-pink .sheep-hit-burst-flash {
+    background: radial-gradient(circle, rgba(251, 207, 232, 0.95) 0%, rgba(236, 72, 153, 0.38) 55%, transparent 72%);
+  }
+
+  ${labelCss('pink', '.sheep-hit-burst-root-pink .sheep-hit-burst-label')}
+
+  .sheep-hit-burst-root-penalty .sheep-hit-burst-ring {
+    border-color: rgba(248, 113, 113, 0.95);
+    box-shadow: 0 0 22px rgba(239, 68, 68, 0.65);
+  }
+
+  .sheep-hit-burst-root-penalty .sheep-hit-burst-flash {
+    background: radial-gradient(circle, rgba(254, 202, 202, 0.95) 0%, rgba(239, 68, 68, 0.35) 55%, transparent 72%);
+  }
+
+  ${labelCss('black', '.sheep-hit-burst-root-penalty .sheep-hit-burst-label')}
 `;

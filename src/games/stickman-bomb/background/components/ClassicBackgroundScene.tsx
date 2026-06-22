@@ -5,6 +5,7 @@
 
 import type { GrassTuft, StarDecoration } from '../logic/createDecorations';
 import type { ActiveThemeKey } from '../types';
+import { SkyCloudCanvas } from './SkyCloudCanvas';
 
 type ClassicBackgroundSceneProps = {
   activeThemeKey: ActiveThemeKey;
@@ -37,8 +38,6 @@ export function ClassicBackgroundScene({
         >
           <div className="absolute inset-0 bg-gradient-to-b from-[#7ecbff] via-[#b8e4ff] to-[#d4f0d4]" />
           <div className="absolute top-14 right-[18%] w-20 h-20 rounded-full bg-yellow-200 shadow-[0_0_45px_18px_rgba(253,224,71,0.45)]" />
-          <div className="absolute top-20 left-[12%] w-28 h-9 bg-white/55 rounded-full blur-[0.5px]" />
-          <div className="absolute top-28 right-[8%] w-36 h-10 bg-white/45 rounded-full blur-[0.5px]" />
           <div className="absolute inset-x-0 bottom-0 h-[48%] bg-gradient-to-t from-[#1f6b28] via-[#3da842] to-[#6ecf5a]/85" />
           <div className="absolute bottom-[38%] left-[-10%] w-[55%] h-20 bg-[#358f3a]/55 rounded-[50%] blur-[1px]" />
           <div className="absolute bottom-[36%] right-[-8%] w-[48%] h-16 bg-[#2d7a32]/50 rounded-[50%] blur-[1px]" />
@@ -76,6 +75,8 @@ export function ClassicBackgroundScene({
           }`}
         />
       </div>
+
+      <SkyCloudCanvas activeThemeKey={activeThemeKey} visible={isDayLike || isMeadow} />
 
       <div
         className={`absolute inset-x-0 bottom-0 h-36 pointer-events-none z-0 transition-opacity duration-1000 ${
@@ -133,17 +134,6 @@ export function ClassicBackgroundScene({
                 : 'top-28 left-2/3 w-24 h-24 bg-orange-400 shadow-[0_0_70px_22px_rgba(251,146,60,0.35)]'
           }`}
         />
-
-        {activeThemeKey === 'day' && (
-          <>
-            <div className="absolute top-12 left-[-150px] w-36 h-10 bg-white/40 rounded-full blur-[1px] animate-cloud-slow" />
-            <div className="absolute top-28 left-[-100px] w-48 h-12 bg-white/30 rounded-full blur-[0.8px] animate-cloud-medium" />
-            <div className="absolute top-6 left-[20%] w-24 h-8 bg-white/25 rounded-full blur-[1.2px] animate-cloud-fast" />
-          </>
-        )}
-        {activeThemeKey === 'sunset' && (
-          <div className="absolute top-24 left-[-100px] w-48 h-10 bg-rose-400/25 rounded-full blur-[1px] animate-cloud-slow" />
-        )}
       </div>
     </>
   );

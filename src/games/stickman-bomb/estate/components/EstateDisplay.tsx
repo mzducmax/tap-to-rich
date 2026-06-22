@@ -3,12 +3,13 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ReactNode, RefObject } from 'react';
-import type { AnimationControls } from 'motion/react';
+import { useEffect, type ReactNode, type RefObject } from 'react';
+import { motion, useAnimation, type AnimationControls } from 'motion/react';
 import { EstateIcon } from './EstateIcon';
 import { estateSceneStyles } from '../styles/estateStyles';
 
 import { ESTATE_ISLAND_URL, type EstateLevel } from '../config/estateConfig';
+import { ESTATE_IDLE_SWAY } from '../config/estateIdleSway';
 import type { EstateImageOverrides } from '../config/estateImageSettings';
 
 type EstateDisplayProps = {
@@ -32,27 +33,39 @@ export function EstateDisplay({
   hitControls,
   explosionOverlay,
 }: EstateDisplayProps) {
+  const swayControls = useAnimation();
+
+  useEffect(() => {
+    if (freezeSway) {
+      void swayControls.stop();
+      return;
+    }
+
+    void swayControls.start(ESTATE_IDLE_SWAY);
+  }, [freezeSway, swayControls]);
+
   return (
     <div className="estate-scene" aria-hidden={false}>
       <style>{estateSceneStyles}</style>
-      <div className="estate-stack">
-        <img
-          src={ESTATE_ISLAND_URL}
-          alt=""
-          className="estate-island"
-          aria-hidden
-        />
-        <EstateIcon
-          score={score}
-          targetScore={targetScore}
-          levelOverride={previewEstateLevel ?? undefined}
-          estateImageOverrides={estateImageOverrides}
-          freezeSway={freezeSway}
-          targetRef={targetRef}
-          hitControls={hitControls}
-          explosionOverlay={explosionOverlay}
-        />
-      </div>
+      <motion.div className="estate-sway" animate={swayControls}>
+        <div className="estate-stack">
+          <img
+            src={ESTATE_ISLAND_URL}
+            alt=""
+            className="estate-island"
+            aria-hidden
+          />
+          <EstateIcon
+            score={score}
+            targetScore={targetScore}
+            levelOverride={previewEstateLevel ?? undefined}
+            estateImageOverrides={estateImageOverrides}
+            targetRef={targetRef}
+            hitControls={hitControls}
+            explosionOverlay={explosionOverlay}
+          />
+        </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,6 +1,5 @@
 /**
- * Short right-to-left hammer cursor with shockwave, sparks, and screen shake.
- * Ported from ai_studio_code (Short Stroke Right-to-Left Hammer).
+ * Downward hammer cursor — raises back, smashes straight down on click.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,11 +7,18 @@ import React, { useEffect, useRef } from 'react';
 import {
   HAMMER_HEAD_NORM_X,
   HAMMER_HEAD_NORM_Y,
+  HAMMER_IDLE_ANGLE,
+  HAMMER_IMPACT_ANGLE,
+  HAMMER_MOLE_SPRITE_SIZE,
+  HAMMER_MOLE_STRIKE_PIVOT_OFFSET_Y,
   HAMMER_PIVOT_NORM_X,
   HAMMER_PIVOT_NORM_Y,
+  HAMMER_SMASH_ANGLE,
   HAMMER_SPRITE_ANGLE_OFFSET,
   HAMMER_SPRITE_SIZE,
   HAMMER_SPRITE_URL,
+  HAMMER_STRIKE_PIVOT_OFFSET_Y,
+  HAMMER_WINDUP_ANGLE,
 } from '../config/hammerConfig';
 
 export type HammerImpactPayload = {
@@ -56,18 +62,19 @@ type HammerCursorProps = {
   onHammerImpact?: (payload: HammerImpactPayload) => void;
   enabled?: boolean;
   visible?: boolean;
+  /** Shrink hammer to match whack-a-mole mouse scale. */
+  moleMode?: boolean;
 };
 
-function getHeadLocalOffset() {
-  const size = HAMMER_SPRITE_SIZE;
+function getHeadLocalOffset(spriteSize: number) {
   return {
-    x: (HAMMER_HEAD_NORM_X - HAMMER_PIVOT_NORM_X) * size,
-    y: (HAMMER_HEAD_NORM_Y - HAMMER_PIVOT_NORM_Y) * size,
+    x: (HAMMER_HEAD_NORM_X - HAMMER_PIVOT_NORM_X) * spriteSize,
+    y: (HAMMER_HEAD_NORM_Y - HAMMER_PIVOT_NORM_Y) * spriteSize,
   };
 }
 
-function getHeadWorldPosition(hammer: HammerState) {
-  const { x: localX, y: localY } = getHeadLocalOffset();
+function getHeadWorldPosition(hammer: HammerState, spriteSize: number) {
+  const { x: localX, y: localY } = getHeadLocalOffset(spriteSize);
   const rad = ((hammer.angle + HAMMER_SPRITE_ANGLE_OFFSET) * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
@@ -91,8 +98,8 @@ function createImpact(
     particles.push({
       x,
       y,
-      vx: -Math.random() * 25 - 5,
-      vy: (Math.random() - 0.5) * 10,
+      vx: (Math.random() - 0.5) * 14,
+      vy: Math.random() * 18 + 4,
       size: Math.random() * 3 + 1,
       color: '#ffdd00',
       life: 1,
@@ -107,43 +114,76 @@ function drawHammer(
   particles: Particle[],
   shockwaves: Shockwave[],
   screenShakeRef: { value: number },
+  spriteSize: number,
   onImpact?: (impactX: number, impactY: number, pivotX: number, pivotY: number) => void,
 ) {
-  const size = HAMMER_SPRITE_SIZE;
-  const pivotX = HAMMER_PIVOT_NORM_X * size;
-  const pivotY = HAMMER_PIVOT_NORM_Y * size;
+  const pivotX = HAMMER_PIVOT_NORM_X * spriteSize;
+  const pivotY = HAMMER_PIVOT_NORM_Y * spriteSize;
 
   ctx.save();
   ctx.translate(hammer.x, hammer.y);
   ctx.rotate(((hammer.angle + HAMMER_SPRITE_ANGLE_OFFSET) * Math.PI) / 180);
-  ctx.drawImage(hammerImg, -pivotX, -pivotY, size, size);
+  ctx.drawImage(hammerImg, -pivotX, -pivotY, spriteSize, spriteSize);
 
-  if (hammer.phase === 'SMASH' && hammer.angle <= -10) {
-    const head = getHeadWorldPosition(hammer);
+  if (hammer.phase === 'SMASH' && hammer.angle <= HAMMER_IMPACT_ANGLE) {
+    const head = getHeadWorldPosition(hammer, spriteSize);
     createImpact(head.x, head.y, particles, shockwaves, screenShakeRef);
     onImpact?.(head.x, head.y, hammer.x, hammer.y);
     hammer.phase = 'RECOVER';
-    hammer.targetAngle = 15;
+    hammer.targetAngle = HAMMER_IDLE_ANGLE;
   }
 
   ctx.restore();
 }
 
-function updateHammer(hammer: HammerState, mouseX: number, mouseY: number) {
-  hammer.x += (mouseX - hammer.x) * 0.4;
-  hammer.y += (mouseY - hammer.y) * 0.4;
+function getHammerTarget(
+  phase: HammerPhase,
+  mouseX: number,
+  mouseY: number,
+  clickX: number,
+  clickY: number,
+  strikePivotOffsetY: number,
+) {
+  if (phase === 'WINDUP' || phase === 'SMASH' || phase === 'RECOVER') {
+    return {
+      x: clickX,
+      y: clickY - strikePivotOffsetY,
+    };
+  }
+
+  return { x: mouseX, y: mouseY };
+}
+
+function updateHammer(
+  hammer: HammerState,
+  mouseX: number,
+  mouseY: number,
+  clickX: number,
+  clickY: number,
+  strikePivotOffsetY: number,
+) {
+  const target = getHammerTarget(
+    hammer.phase,
+    mouseX,
+    mouseY,
+    clickX,
+    clickY,
+    strikePivotOffsetY,
+  );
+  hammer.x += (target.x - hammer.x) * 0.45;
+  hammer.y += (target.y - hammer.y) * 0.45;
 
   if (hammer.phase === 'WINDUP') {
     hammer.angle += (hammer.targetAngle - hammer.angle) * 0.5;
     if (Math.abs(hammer.angle - hammer.targetAngle) < 2) {
       hammer.phase = 'SMASH';
-      hammer.targetAngle = -25;
+      hammer.targetAngle = HAMMER_SMASH_ANGLE;
     }
   } else if (hammer.phase === 'SMASH') {
-    hammer.angle += (hammer.targetAngle - hammer.angle) * 0.75;
+    hammer.angle += (hammer.targetAngle - hammer.angle) * 0.78;
   } else {
-    hammer.angle += (15 - hammer.angle) * 0.2;
-    if (hammer.phase === 'RECOVER' && Math.abs(hammer.angle - 15) < 1) {
+    hammer.angle += (HAMMER_IDLE_ANGLE - hammer.angle) * 0.2;
+    if (hammer.phase === 'RECOVER' && Math.abs(hammer.angle - HAMMER_IDLE_ANGLE) < 1) {
       hammer.phase = 'IDLE';
     }
   }
@@ -174,13 +214,16 @@ export function HammerCursor({
   onHammerImpact,
   enabled = true,
   visible = true,
+  moleMode = false,
 }: HammerCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   const onHammerImpactRef = useRef(onHammerImpact);
   const visibleRef = useRef(visible);
+  const moleModeRef = useRef(moleMode);
   onHammerImpactRef.current = onHammerImpact;
   visibleRef.current = visible;
+  moleModeRef.current = moleMode;
 
   useEffect(() => {
     if (!enabled) return;
@@ -204,14 +247,18 @@ export function HammerCursor({
     const particles: Particle[] = [];
     const shockwaves: Shockwave[] = [];
     const screenShakeRef = { value: 0 };
+    const hammerScaleRef = {
+      size: HAMMER_SPRITE_SIZE,
+      strikeOffsetY: HAMMER_STRIKE_PIVOT_OFFSET_Y,
+    };
 
     let impactFiredThisSwing = false;
 
     const hammer: HammerState = {
       x: 0,
       y: 0,
-      angle: 15,
-      targetAngle: 15,
+      angle: HAMMER_IDLE_ANGLE,
+      targetAngle: HAMMER_IDLE_ANGLE,
       phase: 'IDLE',
     };
 
@@ -255,8 +302,8 @@ export function HammerCursor({
 
     const resetHammer = () => {
       hammer.phase = 'IDLE';
-      hammer.targetAngle = 15;
-      hammer.angle = 15;
+      hammer.targetAngle = HAMMER_IDLE_ANGLE;
+      hammer.angle = HAMMER_IDLE_ANGLE;
       impactFiredThisSwing = false;
     };
 
@@ -270,7 +317,7 @@ export function HammerCursor({
       clickPoint.y = local.y;
       impactFiredThisSwing = false;
       hammer.phase = 'WINDUP';
-      hammer.targetAngle = 45;
+      hammer.targetAngle = HAMMER_WINDUP_ANGLE;
     };
 
     const draw = () => {
@@ -312,12 +359,38 @@ export function HammerCursor({
 
       if (screenShakeRef.value > 0) screenShakeRef.value *= 0.8;
 
-      updateHammer(hammer, mouse.x, mouse.y);
+      const targetSize = moleModeRef.current
+        ? HAMMER_MOLE_SPRITE_SIZE
+        : HAMMER_SPRITE_SIZE;
+      const targetOffsetY = moleModeRef.current
+        ? HAMMER_MOLE_STRIKE_PIVOT_OFFSET_Y
+        : HAMMER_STRIKE_PIVOT_OFFSET_Y;
+      hammerScaleRef.size += (targetSize - hammerScaleRef.size) * 0.14;
+      hammerScaleRef.strikeOffsetY +=
+        (targetOffsetY - hammerScaleRef.strikeOffsetY) * 0.14;
+
+      updateHammer(
+        hammer,
+        mouse.x,
+        mouse.y,
+        clickPoint.x,
+        clickPoint.y,
+        hammerScaleRef.strikeOffsetY,
+      );
       updateParticles(particles);
       updateShockwaves(shockwaves);
 
       if (hammerReady) {
-        drawHammer(ctx, hammer, hammerImg, particles, shockwaves, screenShakeRef, handleImpact);
+        drawHammer(
+          ctx,
+          hammer,
+          hammerImg,
+          particles,
+          shockwaves,
+          screenShakeRef,
+          hammerScaleRef.size,
+          handleImpact,
+        );
       }
 
       ctx.restore();

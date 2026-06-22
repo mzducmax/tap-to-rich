@@ -16,10 +16,14 @@ import type { CounterToken } from '../logic/formatCounterDisplay';
 import { formatCounterLabel } from '../logic/formatCounterDisplay';
 import { StickDigit } from './StickDigit';
 import { StickMinusSign } from './StickMinusSign';
-import { FloatingPenalty } from './FloatingPenalty';
 import { FloatingSheepBonus } from '../sheep';
 import { FloatingBirdBonus } from '../birds';
-import type { PenaltyFloat, SheepBonusFloat, BirdBonusFloat } from '../types/gameplayTypes';
+import { FloatingMoleBonus } from '../moles';
+import type {
+  SheepBonusFloat,
+  BirdBonusFloat,
+  MoleBonusFloat,
+} from '../types/gameplayTypes';
 
 type NumberDisplayProps = {
   score: number;
@@ -28,12 +32,12 @@ type NumberDisplayProps = {
   freezeSway: boolean;
   displayStyle?: CounterDisplayStyle;
   displayRef: React.RefObject<HTMLDivElement | null>;
-  penaltyFloats: PenaltyFloat[];
-  onPenaltyFloatDone: (id: number) => void;
   sheepBonusFloats?: SheepBonusFloat[];
   onSheepBonusFloatDone?: (id: number) => void;
   birdBonusFloats?: BirdBonusFloat[];
   onBirdBonusFloatDone?: (id: number) => void;
+  moleBonusFloats?: MoleBonusFloat[];
+  onMoleBonusFloatDone?: (id: number) => void;
 };
 
 function getCounterStyles(style: CounterDisplayStyle) {
@@ -83,12 +87,12 @@ export function NumberDisplay({
   freezeSway,
   displayStyle = 'stick',
   displayRef,
-  penaltyFloats,
-  onPenaltyFloatDone,
   sheepBonusFloats = [],
   onSheepBonusFloatDone,
   birdBonusFloats = [],
   onBirdBonusFloatDone,
+  moleBonusFloats = [],
+  onMoleBonusFloatDone,
 }: NumberDisplayProps) {
   const isStick = displayStyle === 'stick';
   const isBalance = displayStyle === 'balance';
@@ -98,6 +102,14 @@ export function NumberDisplay({
     <div ref={displayRef} className="score-display-root">
       <style>{scoreDisplaySceneStyles}</style>
       <style>{getCounterStyles(displayStyle)}</style>
+      <AnimatePresence>
+        {moleBonusFloats.map((bonus) => (
+          <FloatingMoleBonus
+            key={`mole-bonus-${bonus.id}`}
+            onComplete={() => onMoleBonusFloatDone?.(bonus.id)}
+          />
+        ))}
+      </AnimatePresence>
       <AnimatePresence>
         {birdBonusFloats.map((bonus) => (
           <FloatingBirdBonus
@@ -110,16 +122,8 @@ export function NumberDisplay({
         {sheepBonusFloats.map((bonus) => (
           <FloatingSheepBonus
             key={`sheep-bonus-${bonus.id}`}
+            variant={bonus.variant}
             onComplete={() => onSheepBonusFloatDone?.(bonus.id)}
-          />
-        ))}
-      </AnimatePresence>
-      <AnimatePresence>
-        {penaltyFloats.map((penalty) => (
-          <FloatingPenalty
-            key={penalty.id}
-            amount={penalty.amount}
-            onComplete={() => onPenaltyFloatDone(penalty.id)}
           />
         ))}
       </AnimatePresence>

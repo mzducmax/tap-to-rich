@@ -4,9 +4,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { motion, useAnimation, type AnimationControls } from 'motion/react';
+import { motion, type AnimationControls } from 'motion/react';
 import { formatLevelLabel } from '../../background/config/levelConfig';
 import {
+  estateNeedsSeatUp,
   getEstateImageUrl,
   scoreToEstateLevel,
   type EstateLevel,
@@ -25,7 +26,6 @@ type EstateIconProps = {
   targetScore: number;
   levelOverride?: EstateLevel;
   estateImageOverrides?: EstateImageOverrides;
-  freezeSway?: boolean;
   targetRef: RefObject<HTMLDivElement | null>;
   hitControls: AnimationControls;
   explosionOverlay?: ReactNode;
@@ -36,7 +36,6 @@ export function EstateIcon({
   targetScore,
   levelOverride,
   estateImageOverrides,
-  freezeSway = false,
   targetRef,
   hitControls,
   explosionOverlay,
@@ -46,30 +45,12 @@ export function EstateIcon({
     [levelOverride, score, targetScore],
   );
 
-  const swayControls = useAnimation();
   const displayLevelRef = useRef(activeLevel);
   const isFirstMount = useRef(true);
   const [displayLevel, setDisplayLevel] = useState(activeLevel);
   const [buildingOpacity, setBuildingOpacity] = useState(1);
   const [smokeBurstId, setSmokeBurstId] = useState(0);
   const [smokeVisible, setSmokeVisible] = useState(false);
-
-  useEffect(() => {
-    if (freezeSway) {
-      void swayControls.stop();
-      return;
-    }
-
-    void swayControls.start({
-      y: [0, -11, 0, 9, 0],
-      rotate: [0, 0.55, 0, -0.45, 0],
-      transition: {
-        duration: 5.2,
-        repeat: Infinity,
-        ease: 'easeInOut',
-      },
-    });
-  }, [freezeSway, swayControls]);
 
   useEffect(() => {
     if (isFirstMount.current) {
@@ -109,36 +90,31 @@ export function EstateIcon({
     <>
       <style>{estateIconStyles}</style>
       <motion.div
-        className="estate-sway"
-        animate={swayControls}
+        ref={targetRef}
+        id="estate-target"
+        className={`estate-icon${estateNeedsSeatUp(displayLevel) ? ' estate-icon--seat-up' : ''}`}
+        animate={hitControls}
         title={`Estate ${formatLevelLabel(displayLevel)}`}
       >
-        <motion.div
-          ref={targetRef}
-          id="estate-target"
-          className="estate-icon"
-          animate={hitControls}
-        >
-          {explosionOverlay}
-          <EstateSmokeBurst burstId={smokeBurstId} visible={smokeVisible} />
-          <motion.img
-            key={displayLevel}
-            src={getEstateImageUrl(displayLevel, estateImageOverrides)}
-            alt=""
-            className="estate-building-image"
-            initial={{ opacity: 0.2, scale: 0.96, y: 8, filter: 'blur(2px)' }}
-            animate={{
-              opacity: buildingOpacity,
-              scale: 0.96 + buildingOpacity * 0.04,
-              y: (1 - buildingOpacity) * 8,
-              filter: `blur(${(1 - buildingOpacity) * 2}px)`,
-            }}
-            transition={{
-              duration: REVEAL_MS / 1000,
-              ease: EASE_SMOOTH,
-            }}
-          />
-        </motion.div>
+        {explosionOverlay}
+        <EstateSmokeBurst burstId={smokeBurstId} visible={smokeVisible} />
+        <motion.img
+          key={displayLevel}
+          src={getEstateImageUrl(displayLevel, estateImageOverrides)}
+          alt=""
+          className="estate-building-image"
+          initial={{ opacity: 0.2, scale: 0.96, y: 8, filter: 'blur(2px)' }}
+          animate={{
+            opacity: buildingOpacity,
+            scale: 0.96 + buildingOpacity * 0.04,
+            y: (1 - buildingOpacity) * 8,
+            filter: `blur(${(1 - buildingOpacity) * 2}px)`,
+          }}
+          transition={{
+            duration: REVEAL_MS / 1000,
+            ease: EASE_SMOOTH,
+          }}
+        />
       </motion.div>
     </>
   );

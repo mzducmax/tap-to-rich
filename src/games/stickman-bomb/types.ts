@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { RefObject } from 'react';
 import type { GameStats, TimeOfDay } from '../../types';
 import type { CounterDisplayStyle } from './gameplay';
 import type { WeaponMode } from './gameplay';
 import type { EstateLevel, EstateImageOverrides } from './estate';
 
-export const BOMB_PENALTY = 10;
+export const CHEST_REWARD = 10;
 export const MISS_PENALTY_BOXES = 10;
 
 export interface StickmanBombCanvasProps {
@@ -27,6 +28,13 @@ export interface StickmanBombCanvasProps {
   weaponMode?: WeaponMode;
   weaponSwitchKey?: string;
   onWeaponModeChange?: (mode: WeaponMode) => void;
+  hammerEstateReward?: number;
+  /** Avatar shown in key-[3] strike and key-[4] coin shower portals (optional). */
+  avatarStrikeUrl?: string;
+  /** Bottom HUD dock shell — zoom target for key-[0] balance drain. */
+  balancePanelRef?: RefObject<HTMLElement | null>;
+  /** Wrapper around bottom HUD — raised z-index during key-[0] drain. */
+  balanceDockRef?: RefObject<HTMLElement | null>;
 }
 
 export interface StickmanBombCanvasHandle {

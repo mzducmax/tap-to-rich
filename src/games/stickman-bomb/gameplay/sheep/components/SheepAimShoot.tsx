@@ -5,7 +5,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import {
+  SCOPE_LENS_EDGE_ALPHA,
   SCOPE_LENS_RATIO,
+  SCOPE_OUTER_DIM_COLOR,
   SHEEP_SHOT_COOLDOWN_MS,
   SHEEP_SHOT_TRAVEL_MS,
 } from '../styles/scopeStyles';
@@ -43,16 +45,16 @@ function drawScopeLens(
 
   ctx.save();
 
-  ctx.fillStyle = 'rgba(6, 8, 14, 0.9)';
+  ctx.fillStyle = SCOPE_OUTER_DIM_COLOR;
   ctx.beginPath();
   ctx.rect(0, 0, width, height);
   ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
   ctx.fill('evenodd');
 
   const lensGrad = ctx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius);
-  lensGrad.addColorStop(0, 'rgba(180, 210, 170, 0.06)');
-  lensGrad.addColorStop(0.72, 'rgba(40, 70, 45, 0.1)');
-  lensGrad.addColorStop(1, 'rgba(0, 0, 0, 0.28)');
+  lensGrad.addColorStop(0, 'rgba(180, 210, 170, 0.04)');
+  lensGrad.addColorStop(0.72, 'rgba(40, 70, 45, 0.06)');
+  lensGrad.addColorStop(1, `rgba(0, 0, 0, ${SCOPE_LENS_EDGE_ALPHA})`);
   ctx.fillStyle = lensGrad;
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);

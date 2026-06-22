@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import hackerMp3 from '../assets/sounds/hacker.mp3';
 import loseMp3 from '../assets/sounds/lose.mp3';
+import trainMp3 from '../assets/sounds/train.mp3';
 import winMp3 from '../assets/sounds/win.mp3';
+import trumpMp3 from '../assets/sounds/trump.mp3';
 
 class SoundEffectsManager {
   private ctx: AudioContext | null = null;
@@ -12,6 +15,9 @@ class SoundEffectsManager {
   private volume: number = 0.5; // default volume level (0.0 to 1.0)
   private winAudio: HTMLAudioElement | null = null;
   private loseAudio: HTMLAudioElement | null = null;
+  private trumpAudio: HTMLAudioElement | null = null;
+  private hackerAudio: HTMLAudioElement | null = null;
+  private trainAudio: HTMLAudioElement | null = null;
 
   private initContext() {
     if (!this.ctx) {
@@ -36,6 +42,9 @@ class SoundEffectsManager {
     this.volume = Math.max(0, Math.min(1, val));
     if (this.winAudio) this.winAudio.volume = this.volume;
     if (this.loseAudio) this.loseAudio.volume = this.volume;
+    if (this.trumpAudio) this.trumpAudio.volume = this.volume;
+    if (this.hackerAudio) this.hackerAudio.volume = this.volume;
+    if (this.trainAudio) this.trainAudio.volume = this.volume;
   }
 
   getVolume() {
@@ -192,16 +201,22 @@ class SoundEffectsManager {
     }
   }
 
-  private playMp3(src: string, cache: 'win' | 'lose') {
+  private playMp3(src: string, cache: 'win' | 'lose' | 'trump') {
     if (this.isMuted) return;
     try {
       this.initContext();
-      let audio = cache === 'win' ? this.winAudio : this.loseAudio;
+      let audio =
+        cache === 'win'
+          ? this.winAudio
+          : cache === 'lose'
+            ? this.loseAudio
+            : this.trumpAudio;
       if (!audio) {
         audio = new Audio(src);
         audio.preload = 'auto';
         if (cache === 'win') this.winAudio = audio;
-        else this.loseAudio = audio;
+        else if (cache === 'lose') this.loseAudio = audio;
+        else this.trumpAudio = audio;
       }
       audio.volume = this.volume;
       audio.currentTime = 0;
@@ -217,6 +232,11 @@ class SoundEffectsManager {
 
   playLose() {
     this.playMp3(loseMp3, 'lose');
+  }
+
+  /** Key 9 — Trump spawn intro clip. */
+  playTrumpSpawn() {
+    this.playMp3(trumpMp3, 'trump');
   }
 
   // Tiếng nổ nhỏ khi bom phát nổ (ngắn, nhẹ)
@@ -378,6 +398,248 @@ class SoundEffectsManager {
   /** @deprecated use playGunShot */
   playSheepShot() {
     this.playGunShot();
+  }
+
+  // Epic lightning strike: crack → body → bass thump → short rumble tail (key 7)
+  playThunder() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.initContext();
+      const t = ctx.currentTime;
+
+      // ── 1. Initial crack — instant white-noise burst, very bright ──────────
+      const crackSz = Math.floor(ctx.sampleRate * 0.022);
+      const crackBuf = ctx.createBuffer(1, crackSz, ctx.sampleRate);
+      const crackData = crackBuf.getChannelData(0);
+      for (let i = 0; i < crackSz; i++)
+        crackData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (crackSz * 0.18));
+      const crackSrc = ctx.createBufferSource();
+      crackSrc.buffer = crackBuf;
+      const crackHP = ctx.createBiquadFilter();
+      crackHP.type = 'highpass';
+      crackHP.frequency.setValueAtTime(3500, t);
+      const crackGain = ctx.createGain();
+      crackGain.gain.setValueAtTime(0.72 * this.volume, t);
+      crackGain.gain.exponentialRampToValueAtTime(0.001 * this.volume, t + 0.025);
+      crackSrc.connect(crackHP);
+      crackHP.connect(crackGain);
+      crackGain.connect(ctx.destination);
+      crackSrc.start(t);
+      crackSrc.stop(t + 0.028);
+
+      // ── 2. Electric body — mid-freq sizzle that fills the crack ───────────
+      const bodySz = Math.floor(ctx.sampleRate * 0.14);
+      const bodyBuf = ctx.createBuffer(1, bodySz, ctx.sampleRate);
+      const bodyData = bodyBuf.getChannelData(0);
+      for (let i = 0; i < bodySz; i++)
+        bodyData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bodySz * 0.42));
+      const bodySrc = ctx.createBufferSource();
+      bodySrc.buffer = bodyBuf;
+      const bodyBP = ctx.createBiquadFilter();
+      bodyBP.type = 'bandpass';
+      bodyBP.frequency.setValueAtTime(1800, t + 0.008);
+      bodyBP.Q.setValueAtTime(0.9, t + 0.008);
+      const bodyGain = ctx.createGain();
+      bodyGain.gain.setValueAtTime(0.44 * this.volume, t + 0.008);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001 * this.volume, t + 0.16);
+      bodySrc.connect(bodyBP);
+      bodyBP.connect(bodyGain);
+      bodyGain.connect(ctx.destination);
+      bodySrc.start(t + 0.008);
+      bodySrc.stop(t + 0.155);
+
+      // ── 3. Bass thump — felt impact (sine sweep 120→38 Hz) ────────────────
+      const thump = ctx.createOscillator();
+      const thumpGain = ctx.createGain();
+      thump.type = 'sine';
+      thump.frequency.setValueAtTime(120, t + 0.012);
+      thump.frequency.exponentialRampToValueAtTime(38, t + 0.22);
+      thumpGain.gain.setValueAtTime(0.0, t + 0.012);
+      thumpGain.gain.linearRampToValueAtTime(0.38 * this.volume, t + 0.030);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001 * this.volume, t + 0.28);
+      thump.connect(thumpGain);
+      thumpGain.connect(ctx.destination);
+      thump.start(t + 0.012);
+      thump.stop(t + 0.30);
+
+      // ── 4. Short rumble tail — low-pass noise 0.5 s ──────────────────────
+      const rumbleSz = Math.floor(ctx.sampleRate * 0.5);
+      const rumbleBuf = ctx.createBuffer(1, rumbleSz, ctx.sampleRate);
+      const rumbleData = rumbleBuf.getChannelData(0);
+      for (let i = 0; i < rumbleSz; i++) rumbleData[i] = Math.random() * 2 - 1;
+      const rumbleSrc = ctx.createBufferSource();
+      rumbleSrc.buffer = rumbleBuf;
+      const rumbleLP = ctx.createBiquadFilter();
+      rumbleLP.type = 'lowpass';
+      rumbleLP.frequency.setValueAtTime(180, t + 0.04);
+      rumbleLP.frequency.exponentialRampToValueAtTime(55, t + 0.55);
+      const rumbleGain = ctx.createGain();
+      rumbleGain.gain.setValueAtTime(0.0, t + 0.04);
+      rumbleGain.gain.linearRampToValueAtTime(0.24 * this.volume, t + 0.08);
+      rumbleGain.gain.exponentialRampToValueAtTime(0.001 * this.volume, t + 0.52);
+      rumbleSrc.connect(rumbleLP);
+      rumbleLP.connect(rumbleGain);
+      rumbleGain.connect(ctx.destination);
+      rumbleSrc.start(t + 0.04);
+      rumbleSrc.stop(t + 0.55);
+    } catch (e) {
+      console.warn('Audio thunder failed:', e);
+    }
+  }
+
+  // Vui nhộn — fanfare khi Trump spawn cộng tiền (key 9)
+  playTrumpFanfare() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.initContext();
+      const t = ctx.currentTime;
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      const gaps = [0, 0.09, 0.18, 0.28];
+
+      notes.forEach((freq, i) => {
+        const start = t + gaps[i]!;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = i === notes.length - 1 ? 'square' : 'triangle';
+        osc.frequency.setValueAtTime(freq, start);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.02, start + 0.08);
+        gain.gain.setValueAtTime(0.0, start);
+        gain.gain.linearRampToValueAtTime((0.22 - i * 0.02) * this.volume, start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, start + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.24);
+      });
+
+      const cheerSz = Math.floor(ctx.sampleRate * 0.12);
+      const cheerBuf = ctx.createBuffer(1, cheerSz, ctx.sampleRate);
+      const cheerData = cheerBuf.getChannelData(0);
+      for (let i = 0; i < cheerSz; i++) {
+        cheerData[i] = (Math.random() * 2 - 1) * (1 - i / cheerSz);
+      }
+      const cheer = ctx.createBufferSource();
+      cheer.buffer = cheerBuf;
+      const cheerBP = ctx.createBiquadFilter();
+      cheerBP.type = 'bandpass';
+      cheerBP.frequency.setValueAtTime(2200, t + 0.2);
+      cheerBP.Q.setValueAtTime(0.8, t + 0.2);
+      const cheerGain = ctx.createGain();
+      cheerGain.gain.setValueAtTime(0.0, t + 0.2);
+      cheerGain.gain.linearRampToValueAtTime(0.14 * this.volume, t + 0.24);
+      cheerGain.gain.exponentialRampToValueAtTime(0.001 * this.volume, t + 0.38);
+      cheer.connect(cheerBP);
+      cheerBP.connect(cheerGain);
+      cheerGain.connect(ctx.destination);
+      cheer.start(t + 0.2);
+      cheer.stop(t + 0.4);
+    } catch (e) {
+      console.warn('Audio trump fanfare failed:', e);
+    }
+  }
+
+  // Tiếng tiền rơi — key [4] avatar coin shower
+  playMoneyRain() {
+    if (this.isMuted) return;
+    try {
+      const ctx = this.initContext();
+      const t = ctx.currentTime;
+      const clinkCount = 14;
+      const baseGap = 0.055;
+
+      for (let i = 0; i < clinkCount; i++) {
+        const start = t + i * baseGap + Math.random() * 0.02;
+        const freq = 920 + Math.random() * 680;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, start);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.62, start + 0.07);
+
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(freq * 0.9, start);
+        filter.Q.setValueAtTime(6, start);
+
+        gain.gain.setValueAtTime(0.0, start);
+        gain.gain.linearRampToValueAtTime((0.14 - i * 0.004) * this.volume, start + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.001 * this.volume, start + 0.09);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.1);
+      }
+
+      const tumbleSz = Math.floor(ctx.sampleRate * 0.55);
+      const tumbleBuf = ctx.createBuffer(1, tumbleSz, ctx.sampleRate);
+      const tumbleData = tumbleBuf.getChannelData(0);
+      for (let i = 0; i < tumbleSz; i++) {
+        tumbleData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (tumbleSz * 0.38));
+      }
+      const tumble = ctx.createBufferSource();
+      tumble.buffer = tumbleBuf;
+      const tumbleBP = ctx.createBiquadFilter();
+      tumbleBP.type = 'bandpass';
+      tumbleBP.frequency.setValueAtTime(1400, t + 0.04);
+      tumbleBP.Q.setValueAtTime(0.7, t + 0.04);
+      const tumbleGain = ctx.createGain();
+      tumbleGain.gain.setValueAtTime(0.0, t + 0.04);
+      tumbleGain.gain.linearRampToValueAtTime(0.1 * this.volume, t + 0.08);
+      tumbleGain.gain.exponentialRampToValueAtTime(0.001 * this.volume, t + 0.52);
+      tumble.connect(tumbleBP);
+      tumbleBP.connect(tumbleGain);
+      tumbleGain.connect(ctx.destination);
+      tumble.start(t + 0.04);
+      tumble.stop(t + 0.55);
+    } catch (e) {
+      console.warn('Audio money rain failed:', e);
+    }
+  }
+
+  /** Key [4] — money train pass intro clip. */
+  playTrainSound() {
+    if (this.isMuted) return;
+    try {
+      this.initContext();
+      if (!this.trainAudio) {
+        this.trainAudio = new Audio(trainMp3);
+        this.trainAudio.preload = 'auto';
+      }
+      this.trainAudio.volume = this.volume;
+      this.trainAudio.loop = false;
+      this.trainAudio.currentTime = 0;
+      void this.trainAudio.play().catch((err) => console.warn('Train MP3 playback failed:', err));
+    } catch (e) {
+      console.warn('Train MP3 playback failed:', e);
+    }
+  }
+
+  /** Key [0] — hacker clip during system hack sequence. */
+  startHackerSound() {
+    if (this.isMuted) return;
+    this.stopHackerSound();
+    try {
+      this.initContext();
+      if (!this.hackerAudio) {
+        this.hackerAudio = new Audio(hackerMp3);
+        this.hackerAudio.preload = 'auto';
+      }
+      this.hackerAudio.volume = this.volume;
+      this.hackerAudio.loop = false;
+      this.hackerAudio.currentTime = 0;
+      void this.hackerAudio.play().catch((err) => console.warn('Hacker MP3 playback failed:', err));
+    } catch (e) {
+      console.warn('Hacker MP3 playback failed:', e);
+    }
+  }
+
+  stopHackerSound() {
+    if (!this.hackerAudio) return;
+    this.hackerAudio.pause();
+    this.hackerAudio.currentTime = 0;
   }
 
   // Play crisp high-pitched sound for countdown ticks

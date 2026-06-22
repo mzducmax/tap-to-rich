@@ -22,7 +22,6 @@ export type {
 export type { BirdSpawn } from './logic/buildBirdFlock';
 
 export {
-  BIRD_INTERVAL_MS,
   BIRD_POOP_PENALTY,
   BIRD_SHOOT_REWARD,
 } from './config/birdConfig';

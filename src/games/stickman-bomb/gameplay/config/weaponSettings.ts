@@ -11,7 +11,6 @@ export const WEAPON_SWITCH_KEY_STORAGE_KEY = 'stack_weapon_switch_key';
 export const WEAPON_SWITCH_KEY_OPTIONS: { code: string; label: string }[] = [
   { code: 'Tab', label: 'Tab' },
   { code: 'KeyG', label: 'G' },
-  { code: 'KeyQ', label: 'Q' },
   { code: 'Digit2', label: '2' },
   { code: 'KeyX', label: 'X' },
   { code: 'KeyC', label: 'C' },

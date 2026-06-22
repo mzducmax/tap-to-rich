@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Bubble Archer - Optimized</title>
+    <style>
+        body { margin: 0; background: #0f172a; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: #38bdf8;
+            font-size: 24px; font-weight: bold; text-shadow: 0 0 10px rgba(56,189,248,0.5);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">TIỀN: <span id="moneyDisplay">10000</span>$</div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const moneyDisplay = document.getElementById('moneyDisplay');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // --- CẤU HÌNH ---
+    let money = 10000;
+    const ARROW_COST = 5;
+    const arrows = [];
+    let frameCount = 0;
+
+    // Ảnh
+    const bowImg = new Image();
+    const arrowImg = new Image();
+    bowImg.src = 'bow.png';
+    arrowImg.src = 'arrow.png';
+
+    // --- TỐI ƯU: OFFSCREEN BUFFER ---
+    // Vẽ sẵn bong bóng và nhân vật vào một canvas riêng
+    const bubbleCanvas = document.createElement('canvas');
+    const bCtx = bubbleCanvas.getContext('2d');
+    const bSize = 200; 
+    bubbleCanvas.width = bSize;
+    bubbleCanvas.height = bSize;
+
+    function preRenderBubble() {
+        const center = bSize / 2;
+        
+        // 1. Vẽ hiệu ứng bong bóng (gradient)
+        const grad = bCtx.createRadialGradient(center-20, center-20, 10, center, center, 80);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        grad.addColorStop(1, 'rgba(56, 189, 248, 0.2)');
+        
+        bCtx.beginPath();
+        bCtx.arc(center, center, 80, 0, Math.PI * 2);
+        bCtx.fillStyle = grad;
+        bCtx.fill();
+        bCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        bCtx.lineWidth = 2;
+        bCtx.stroke();
+
+        // 2. Vẽ Avatar đơn giản bên trong
+        bCtx.fillStyle = "#fcd34d";
+        bCtx.beginPath();
+        bCtx.arc(center - 20, center + 10, 15, 0, Math.PI * 2); // Đầu
+        bCtx.fill();
+        bCtx.fillRect(center - 35, center + 25, 30, 40); // Thân
+
+        // 3. Vẽ Cung tên (Đè lên avatar)
+        bCtx.drawImage(bowImg, center - 60, center - 60, 120, 120);
+    }
+
+    // --- LOGIC GAME ---
+    const bubblePos = { x: 150, y: canvas.height / 2, baseY: canvas.height / 2 };
+
+    function shoot() {
+        if (money >= ARROW_COST) {
+            money -= ARROW_COST;
+            moneyDisplay.innerText = money;
+            arrows.push({
+                x: bubblePos.x + 40,
+                y: bubblePos.y - 10, // Bắn từ vị trí cung trong bóng
+                speed: 15
+            });
+        }
+    }
+
+    function update() {
+        frameCount++;
+
+        // Hiệu ứng lơ lửng (Sin wave)
+        bubblePos.y = bubblePos.baseY + Math.sin(frameCount * 0.05) * 30;
+
+        // Tự động bắn mỗi 20 khung hình
+        if (frameCount % 20 === 0) shoot();
+
+        // Cập nhật mũi tên
+        for (let i = arrows.length - 1; i >= 0; i--) {
+            arrows[i].x += arrows[i].speed;
+            if (arrows[i].x > canvas.width) arrows.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        // Xóa nền (Tối ưu: dùng màu đặc thay vì clearRect nếu alpha:false)
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Vẽ các mũi tên (Draw Calls hàng loạt)
+        for (const arrow of arrows) {
+            ctx.drawImage(arrowImg, arrow.x, arrow.y, 80, 30);
+        }
+
+        // Vẽ cụm Bong bóng + Avatar từ Buffer (CHỈ 1 DRAW CALL)
+        // Căn chỉnh để tâm bong bóng khớp với vị trí y lơ lửng
+        ctx.drawImage(bubbleCanvas, bubblePos.x - bSize/2, bubblePos.y - bSize/2);
+
+        update();
+        requestAnimationFrame(draw);
+    }
+
+    // Khởi chạy khi ảnh tải xong
+    let loaded = 0;
+    const checkLoad = () => {
+        if (++loaded === 2) {
+            preRenderBubble();
+            draw();
+        }
+    };
+    bowImg.onload = checkLoad;
+    arrowImg.onload = checkLoad;
+
+    // Xử lý khi resize màn hình
+    window.onresize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        bubblePos.baseY = canvas.height / 2;
+    };
+
+</script>
+</body>
+</html>
