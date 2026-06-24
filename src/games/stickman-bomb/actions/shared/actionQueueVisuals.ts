@@ -7,6 +7,7 @@ import { hackerUrl } from '../key-0/config/hackerAssets';
 import { divineCrossbowUrl } from '../key-5/config/divineCrossbowAssets';
 import { footballUrl } from '../key-8/config/soccerBallAssets';
 import { trumpUrl } from '../key-9/config/trumpAssets';
+import { pigUrl } from '../key-10/config/pigBankAssets';
 import stormCloudUrl from '../key-7/assets/storm-cloud.png';
 import {
   KEY_0_HACKER,
@@ -20,6 +21,8 @@ import {
   KEY_7_VERTICAL_LIGHTNING,
   KEY_8_SOCCER_BALL,
   KEY_9_TRUMP_SPAWN,
+  KEY_P_PIG_BANK,
+  KEY_O_BUTTERFLY,
 } from '../types';
 
 export type ActionQueueVisual = {
@@ -40,6 +43,8 @@ const STATIC_VISUALS: Record<string, Omit<ActionQueueVisual, 'key'>> = {
   [KEY_7_VERTICAL_LIGHTNING]: { label: 'Lightning', emoji: '⚡', imageUrl: stormCloudUrl },
   [KEY_8_SOCCER_BALL]: { label: 'Soccer', emoji: '⚽', imageUrl: footballUrl },
   [KEY_9_TRUMP_SPAWN]: { label: 'Trump', emoji: '💵', imageUrl: trumpUrl },
+  [KEY_P_PIG_BANK]: { label: 'Pig bank', emoji: '🐷', imageUrl: pigUrl },
+  [KEY_O_BUTTERFLY]: { label: 'Gold nugget', emoji: '🪙' },
 };
 
 const visualCache = new Map<string, ActionQueueVisual>();

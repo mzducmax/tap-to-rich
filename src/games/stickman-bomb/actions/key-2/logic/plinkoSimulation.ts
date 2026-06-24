@@ -6,6 +6,7 @@
 import {
   PLINKO_BOARD_H,
   PLINKO_BOARD_W,
+  PLINKO_SLOTS_LAND_Y,
   PLINKO_CENTER_REPEL,
   PLINKO_CENTER_REPEL_DRIFT,
   PLINKO_CENTER_REPEL_CORE,
@@ -79,7 +80,7 @@ function pegPosition(row: number, pegCol: number): PlinkoPoint {
 
 function slotCenters(): PlinkoPoint[] {
   const offsetX = rowOffsetX(PLINKO_ROWS - 1) + boardPaddingX();
-  const y = PLINKO_BOARD_H - 58;
+  const y = PLINKO_SLOTS_LAND_Y;
   return Array.from({ length: PLINKO_SLOT_COUNT }, (_, i) => ({
     x: offsetX + i * PLINKO_PEG_GAP_X,
     y,

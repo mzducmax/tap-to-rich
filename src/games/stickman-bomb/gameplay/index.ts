@@ -7,6 +7,7 @@ export { HammerCursor } from './components/HammerCursor';
 export type { HammerImpactPayload } from './components/HammerCursor';
 export { NumberDisplay } from './components/NumberDisplay';
 export { GameplayControlsSection } from './components/GameplayControlsSection';
+export { GameMarketPanel } from './components/GameMarketPanel';
 export { WeaponModeBadge, weaponModeBadgeStyles } from './components/WeaponModeBadge';
 export { SeasonSessionBadge, seasonSessionBadgeStyles } from './components/SeasonSessionBadge';
 export { EstateScoreFloat } from './components/EstateScoreFloat';
@@ -59,3 +60,9 @@ export {
 export type { WeaponMode } from './config/weaponSettings';
 
 export type { PenaltyFloat, SheepBonusFloat, BirdBonusFloat, MoleBonusFloat } from './types/gameplayTypes';
+export {
+  BORROW_MONEY_LOAN,
+  MARKET_GAMES,
+  formatHouseLevelLabel,
+} from './config/marketConfig';
+export type { MarketGameId } from './config/marketConfig';

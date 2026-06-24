@@ -93,6 +93,32 @@ export function getScoreFloatPresentation(
     };
   }
 
+  if (source === 'key-p') {
+    return {
+      fontSize: '4.8rem',
+      strokeWidth: '3px',
+      initialScale: 0.4,
+      peakScale: 1.58,
+      endScale: 1.02,
+      glowBlur: '28px',
+      duration: 1.55,
+      riseY: [-10, -32, -168],
+    };
+  }
+
+  if (source === 'key-11') {
+    return {
+      fontSize: '3.6rem',
+      strokeWidth: '2.5px',
+      initialScale: 0.42,
+      peakScale: 1.42,
+      endScale: 0.96,
+      glowBlur: '22px',
+      duration: 1.35,
+      riseY: [-8, -28, -140],
+    };
+  }
+
   if (source === 'key-8') {
     return {
       fontSize: '4.75rem',
@@ -116,6 +142,19 @@ export function getScoreFloatPresentation(
       glowBlur: '38px',
       duration: 1.38,
       riseY: [-4, -22, -158],
+    };
+  }
+
+  if (source === 'market') {
+    return {
+      fontSize: '5rem',
+      strokeWidth: '4px',
+      initialScale: 0.38,
+      peakScale: 1.62,
+      endScale: 0.95,
+      glowBlur: '30px',
+      duration: 1.65,
+      riseY: [-6, -30, -170],
     };
   }
 
@@ -184,6 +223,10 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
       };
     case 'key-9':
       return { color: '#fde047', glow: 'rgba(253,224,71,0.95)', stroke: '#1e3a8a' };
+    case 'key-p':
+      return { color: '#fbbf24', glow: 'rgba(251,191,36,0.9)', stroke: '#14532d' };
+    case 'key-11':
+      return { color: '#fde047', glow: 'rgba(251,191,36,0.9)', stroke: '#78350f' };
     case 'gun':
       return { color: '#60a5fa', glow: 'rgba(96,165,250,0.64)', stroke: '#1e3a8a' };
     case 'sheep':
@@ -192,6 +235,8 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
       return { color: '#4ade80', glow: 'rgba(74,222,128,0.64)', stroke: '#166534' };
     case 'mole':
       return { color: '#f3f4f6', glow: 'rgba(244, 114, 182, 0.72)', stroke: '#6b7280' };
+    case 'market':
+      return { color: '#f87171', glow: 'rgba(248,113,113,0.85)', stroke: '#7f1d1d' };
     case 'auto':
       return { color: '#10b981', glow: 'rgba(16,185,129,0.64)', stroke: '#065f46' };
     default:

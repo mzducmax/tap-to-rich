@@ -4,13 +4,20 @@
  */
 
 import {
-  PLINKO_BALL_SIZE,
   PLINKO_BOARD_H,
   PLINKO_BOARD_W,
+  PLINKO_BALL_SIZE,
+  PLINKO_AIM_ZONE_H,
+  PLINKO_HEADER_H,
   PLINKO_PEG_SIZE,
   PLINKO_PLAY_W,
+  PLINKO_SLOTS_BOTTOM,
+  PLINKO_SLOT_H,
+  PLINKO_STATS_ROW_GAP,
+  PLINKO_STATS_ROW_H,
+  PLINKO_STATS_TITLE_GAP,
+  PLINKO_STATS_TITLE_H,
   PLINKO_STATS_W,
-  PLINKO_TOP_PADDING,
 } from '../config/plinkoConfig';
 
 export const PLINKO_LAYER_Z = 200;
@@ -32,7 +39,13 @@ export const plinkoStyles = `
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: rgba(0, 0, 0, 0.78);
+    background:
+      radial-gradient(
+        ellipse 82% 74% at 50% 44%,
+        rgba(23, 77, 44, 0.28) 0%,
+        rgba(8, 20, 14, 0.72) 52%,
+        rgba(0, 0, 0, 0.86) 100%
+      );
     animation: plinko-dim-in 0.35s ease-out forwards;
   }
 
@@ -80,12 +93,20 @@ export const plinkoStyles = `
     height: ${PLINKO_BOARD_H}px;
     border-radius: 18px;
     background:
-      linear-gradient(180deg, rgba(42, 47, 58, 0.99) 0%, rgba(22, 25, 32, 1) 100%);
-    border: 2px solid rgba(255, 255, 255, 0.12);
+      linear-gradient(
+        165deg,
+        rgba(31, 107, 40, 0.92) 0%,
+        rgba(20, 68, 42, 0.96) 24%,
+        rgba(15, 42, 52, 0.98) 52%,
+        rgba(38, 28, 12, 0.98) 78%,
+        rgba(92, 61, 20, 0.95) 100%
+      );
+    border: 2px solid rgba(251, 191, 36, 0.38);
     box-shadow:
       0 32px 96px rgba(0, 0, 0, 0.72),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 0 80px rgba(0, 0, 0, 0.25);
+      0 0 48px rgba(31, 107, 40, 0.18),
+      inset 0 1px 0 rgba(253, 224, 71, 0.18),
+      inset 0 0 72px rgba(23, 77, 28, 0.14);
     touch-action: none;
   }
 
@@ -95,15 +116,15 @@ export const plinkoStyles = `
     top: 0;
     left: 0;
     right: 0;
-    height: ${PLINKO_TOP_PADDING - 8}px;
+    height: ${PLINKO_HEADER_H}px;
     border-radius: 16px 16px 0 0;
     background: linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0.02) 55%,
-      transparent 100%
+      rgba(253, 224, 71, 0.1) 0%,
+      rgba(61, 168, 90, 0.08) 45%,
+      rgba(255, 255, 255, 0.02) 100%
     );
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(251, 191, 36, 0.22);
     pointer-events: none;
     z-index: 1;
   }
@@ -115,26 +136,35 @@ export const plinkoStyles = `
     display: flex;
     flex-direction: column;
     border-radius: 14px;
-    background: linear-gradient(180deg, rgba(30, 34, 44, 0.97) 0%, rgba(18, 20, 28, 0.99) 100%);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(
+      180deg,
+      rgba(28, 82, 48, 0.97) 0%,
+      rgba(18, 48, 40, 0.98) 42%,
+      rgba(42, 30, 12, 0.99) 100%
+    );
+    border: 2px solid rgba(251, 191, 36, 0.3);
     box-shadow:
       0 24px 64px rgba(0, 0, 0, 0.55),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      0 0 32px rgba(31, 107, 40, 0.12),
+      inset 0 1px 0 rgba(253, 224, 71, 0.14);
     overflow: hidden;
     pointer-events: none;
   }
 
   .plinko-stats__title {
     flex-shrink: 0;
+    min-height: ${PLINKO_STATS_TITLE_H}px;
     padding: 10px 8px 8px;
+    box-sizing: border-box;
     font-family: "Nunito", "Trebuchet MS", sans-serif;
     font-size: 0.72rem;
     font-weight: 900;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: center;
-    color: rgba(253, 224, 71, 0.92);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(253, 224, 71, 0.95);
+    border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+    background: linear-gradient(180deg, rgba(253, 224, 71, 0.08) 0%, transparent 100%);
   }
 
   .plinko-stats__rows {
@@ -142,15 +172,17 @@ export const plinkoStyles = `
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    gap: 3px;
-    padding: 0 6px 14px;
+    gap: ${PLINKO_STATS_ROW_GAP}px;
+    margin-top: ${PLINKO_STATS_TITLE_GAP}px;
+    padding: 0 6px ${PLINKO_SLOTS_BOTTOM}px;
     box-sizing: border-box;
     min-height: 0;
+    overflow: hidden;
   }
 
   .plinko-stats__row {
     flex-shrink: 0;
-    height: 40px;
+    height: ${PLINKO_STATS_ROW_H}px;
     border-radius: 5px;
     display: flex;
     flex-direction: column;
@@ -205,7 +237,7 @@ export const plinkoStyles = `
 
   .plinko-aim-zone {
     position: absolute;
-    height: 72px;
+    height: ${PLINKO_AIM_ZONE_H}px;
     border-radius: 14px;
     border: 2px dashed rgba(250, 204, 21, 0.45);
     background: rgba(250, 204, 21, 0.08);
@@ -338,7 +370,7 @@ export const plinkoStyles = `
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 14px;
+    bottom: ${PLINKO_SLOTS_BOTTOM}px;
     display: flex;
     justify-content: center;
     gap: 3px;
@@ -350,7 +382,7 @@ export const plinkoStyles = `
     flex: 1;
     min-width: 0;
     max-width: 34px;
-    height: 40px;
+    height: ${PLINKO_SLOT_H}px;
     border-radius: 5px;
     display: flex;
     align-items: center;

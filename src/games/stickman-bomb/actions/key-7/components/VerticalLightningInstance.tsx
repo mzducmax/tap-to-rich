@@ -89,9 +89,9 @@ function VerticalLightningInstanceInner({
           estateRect = estate.getBoundingClientRect();
           lastRectRefresh = now;
         }
-        if (layerRect.width > 0 && layerRect.height > 0) {
-          resizeVerticalLightningCanvas(layerRect.width, layerRect.height);
-        }
+        // Canvas sizing is handled once during warm-up and by the layer's
+        // ResizeObserver — no need to re-resize the shared GPU buffer on every
+        // bolt spawn (with several concurrent storms that caused GPU stutter).
         const bolt = pickVerticalEstateStrikeBolt(
           layerRect.width,
           layerRect.height,

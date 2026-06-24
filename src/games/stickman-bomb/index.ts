@@ -41,7 +41,17 @@ export {
   WEAPON_SWITCH_KEY_OPTIONS,
 } from './gameplay';
 export type { WeaponMode } from './gameplay';
-export { NumberDisplay, useGameplayScore, GameplayControlsSection, formatCounterLabel } from './gameplay';
+export {
+  NumberDisplay,
+  useGameplayScore,
+  GameplayControlsSection,
+  GameMarketPanel,
+  formatCounterLabel,
+  formatHouseLevelLabel,
+  BORROW_MONEY_LOAN,
+  MARKET_GAMES,
+} from './gameplay';
+export type { MarketGameId } from './gameplay';
 export {
   BombSequence,
   PlinkoLayer,

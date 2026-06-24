@@ -15,6 +15,8 @@ export const KEY_6_DICE_ROLL = '6';
 export const KEY_7_VERTICAL_LIGHTNING = '7';
 export const KEY_8_SOCCER_BALL = '8';
 export const KEY_9_TRUMP_SPAWN = '9';
+export const KEY_P_PIG_BANK = 'p';
+export const KEY_O_BUTTERFLY = 'o';
 
 export type KeyActionContext = {
   triggerHackerEffect: () => void;
@@ -27,6 +29,8 @@ export type KeyActionContext = {
   triggerVerticalLightning: () => void;
   triggerSoccerBallKick: () => void;
   triggerTrumpSpawn: () => void;
+  triggerPigBank: () => void;
+  triggerButterfly: () => void;
   paused: boolean;
   /** True while a key-0 hacker effect instance is actively playing. */
   hackerEffectRunning: boolean;

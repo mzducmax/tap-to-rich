@@ -82,6 +82,7 @@ export function GameplayControlsSection({
         />
         <ControlRow keys="[Q]" action="Sheep herd (+$5 white, +$10×4 pink, +$30×2 gold, −$10 black, auto 10s)" />
         <ControlRow keys="[W]" action="Bird flock wave (+$10 per hit)" />
+        <ControlRow keys="[M]" action="Open / close game market" />
         <ControlRow keys="ESC" action="Open / close settings" />
       </div>
     </div>

@@ -21,6 +21,7 @@ type TargetGoalDockProps = {
   winTotal?: number;
   showWin?: boolean;
   weaponMode?: WeaponMode;
+  hasBorrowed?: boolean;
   shellRef?: RefObject<HTMLDivElement | null>;
 };
 
@@ -54,6 +55,7 @@ export default function TargetGoalDock({
   winTotal = 0,
   showWin = false,
   weaponMode = 'hammer',
+  hasBorrowed = false,
   shellRef,
 }: TargetGoalDockProps) {
   const isGun = weaponMode === 'gun';
@@ -98,7 +100,7 @@ export default function TargetGoalDock({
     winTotal > 0 && winCurrent >= winTotal ? 'text-amber-200' :
     'text-white/75';
 
-  const hasMeta = showWinStat || isWin || isLose;
+  const hasMeta = showWinStat || isWin || isLose || hasBorrowed;
   const activeLevel = useMemo(
     () => scoreToEstateLevel(score, targetScore),
     [score, targetScore],
@@ -117,12 +119,11 @@ export default function TargetGoalDock({
         {formatLevelBadgeLabel(activeLevel)}
       </div>
 
-      <span
-        className="absolute top-3 right-3 text-sm leading-none opacity-85"
-        aria-label={isGun ? 'Gun' : 'Hammer'}
-      >
-        {isGun ? '🔫' : '🔨'}
-      </span>
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        <span className="text-sm leading-none opacity-85" aria-label={isGun ? 'Gun' : 'Hammer'}>
+          {isGun ? '🔫' : '🔨'}
+        </span>
+      </div>
 
       <div className="overflow-hidden rounded-xl">
       <div
@@ -164,7 +165,13 @@ export default function TargetGoalDock({
       </div>
 
       {hasMeta && (
-        <div className="flex items-center justify-center gap-2 px-3 pb-2 text-[10px] font-black tracking-wider">
+        <div className="flex flex-wrap items-center justify-center gap-2 px-3 pb-2 text-[10px] font-black tracking-wider">
+          {hasBorrowed && (
+            <span className="shrink-0 rounded-md border border-rose-400/50 bg-rose-500/25 px-1.5 py-0.5 text-[9px] uppercase text-rose-200">
+              Borrow
+            </span>
+          )}
+
           {showWinStat && (
             <span className={`font-mono tabular-nums ${winTone}`}>
               WIN {winCurrent}

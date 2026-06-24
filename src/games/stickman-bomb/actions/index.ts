@@ -78,6 +78,18 @@ export {
   TRUMP_SPAWN_REWARD,
   key9TrumpSpawnAction,
 } from './key-9';
+export {
+  PigBankLayer,
+  usePigBank,
+  PIG_BANK_REWARD,
+  keyPPigBankAction,
+} from './key-10';
+export {
+  ButterflyLayer,
+  useButterfly,
+  BUTTERFLY_REWARD,
+  key11ButterflyAction,
+} from './key-11';
 
 export { keyActions } from './keyActions';
 export { useKeyActions } from './useKeyActions';
@@ -93,6 +105,8 @@ export {
   KEY_7_VERTICAL_LIGHTNING,
   KEY_8_SOCCER_BALL,
   KEY_9_TRUMP_SPAWN,
+  KEY_P_PIG_BANK,
+  KEY_O_BUTTERFLY,
 } from './types';
 export type { KeyActionContext, KeyActionDefinition } from './types';
 export type { DiceLandPayload } from './key-6/types';

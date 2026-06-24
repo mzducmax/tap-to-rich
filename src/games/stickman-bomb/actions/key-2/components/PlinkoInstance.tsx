@@ -15,6 +15,8 @@ import { sleep, waitForRefs } from '../../shared/animationUtils';
 import { isGameplayPaused } from '../../../gameplay/logic/gameplayPause';
 import { formatScoreFloatAmount } from '../../../gameplay/logic/scoreFloatPalette';
 import {
+  PLINKO_AIM_ZONE_H,
+  PLINKO_AIM_ZONE_OFFSET_Y,
   PLINKO_EXIT_MS,
   PLINKO_MULTIPLIERS,
   PLINKO_REWARD_HOLD_MS,
@@ -276,6 +278,7 @@ function PlinkoInstanceInner({
   const railWidth = dropZone.maxX - dropZone.minX;
   const railLeft = dropZone.minX;
   const aimPad = 28;
+  const aimTop = dropZone.y - PLINKO_AIM_ZONE_OFFSET_Y;
 
   const statsRowClass = (index: number) => {
     const mult = PLINKO_MULTIPLIERS[index] ?? 1;
@@ -302,7 +305,7 @@ function PlinkoInstanceInner({
                 style={{
                   left: railLeft - aimPad,
                   width: railWidth + aimPad * 2,
-                  top: dropZone.y - 34,
+                  top: aimTop,
                 }}
                 onPointerDown={handleAimPointerDown}
                 onPointerMove={handleAimPointerMove}

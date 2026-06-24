@@ -33,6 +33,7 @@ import {
   useGameBackground,
   useEstateImageSettings,
   GameplayControlsSection,
+  GameMarketPanel,
   scoreToEstateLevel,
   loadTargetScore,
   saveTargetScore,
@@ -51,6 +52,8 @@ import {
   type CounterDisplayStyle,
   type EstateLevel,
   type WeaponMode,
+  MARKET_GAMES,
+  type MarketGameId,
 } from './games/stickman-bomb';
 import TargetGoalDock from './components/TargetGoalDock';
 import { useLiveNetworking, type LoginRequest } from './hooks/useLiveNetworking';
@@ -76,6 +79,7 @@ type ViewerGiftStats = {
 
 export default function App() {
   const canvasRef = useRef<StickmanBombCanvasHandle | null>(null);
+  const pendingMarketGameRef = useRef<MarketGameId | null>(null);
   const balancePanelRef = useRef<HTMLDivElement | null>(null);
   const balanceDockRef = useRef<HTMLDivElement | null>(null);
   const viewerStatsRef = useRef<Map<string, ViewerGiftStats>>(new Map());
@@ -103,6 +107,8 @@ export default function App() {
 
   // Modal display overrides
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showMarketPanel, setShowMarketPanel] = useState(false);
+  const [hasBorrowed, setHasBorrowed] = useState(false);
   const [previewEstateLevel, setPreviewEstateLevel] = useState<EstateLevel | null>(null);
   const {
     estateImageOverrides,
@@ -129,6 +135,7 @@ export default function App() {
 
   const gamePaused =
     showSettingsModal ||
+    showMarketPanel ||
     victoryCountdown !== null ||
     showDefeatModal ||
     hasReachedWinTarget(stats.score, targetScore) ||
@@ -255,6 +262,56 @@ export default function App() {
       setShowNotification(null);
     }, 2500);
   };
+
+  const handleMarketGameSelect = useCallback((gameId: MarketGameId) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const game = MARKET_GAMES.find((g) => g.id === gameId);
+
+    if (gameId === 'loan') {
+      canvas.triggerBorrowMoney();
+      setHasBorrowed(true);
+      setShowMarketPanel(false);
+      return;
+    }
+
+    const cost = game?.cost ?? 0;
+    if (cost > 0 && stats.score < cost) {
+      triggerFloatNotify(`Not enough balance! Need $${cost} to play.`);
+      return;
+    }
+
+    // The wave systems are frozen while the market panel is open, so closing
+    // the panel and launching the game must happen in two steps: close now,
+    // then trigger once the game has un-paused (handled by the effect below).
+    setShowMarketPanel(false);
+    pendingMarketGameRef.current = gameId;
+  }, [stats.score]);
+
+  // Launch the selected game right after the market panel closes and the game
+  // un-pauses — mirroring exactly what pressing the hotkey (W / E) does.
+  useEffect(() => {
+    if (gamePaused) return;
+    const gameId = pendingMarketGameRef.current;
+    if (!gameId) return;
+    pendingMarketGameRef.current = null;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let started = false;
+    if (gameId === 'mole') {
+      started = canvas.triggerMoleWave();
+    } else if (gameId === 'bird') {
+      started = canvas.triggerBirdWave();
+    }
+    if (!started) return;
+
+    const cost = MARKET_GAMES.find((g) => g.id === gameId)?.cost ?? 0;
+    if (cost > 0) canvas.deductBalance(cost);
+    audioManager.playPop();
+  }, [gamePaused]);
 
   const showLiveActionBanner = (banner: LiveActionBanner) => {
     if (liveActionBannerTimeoutRef.current) {
@@ -429,7 +486,30 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        setShowMarketPanel((prev) => {
+          const next = !prev;
+          if (next) audioManager.playPop();
+          return next;
+        });
+        return;
+      }
+
       if (e.key === 'Escape' || e.key === 'Esc') {
+        if (showMarketPanel) {
+          setShowMarketPanel(false);
+          return;
+        }
         setShowSettingsModal((prev) => {
           const next = !prev;
           if (next) {
@@ -443,7 +523,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showMarketPanel]);
 
   const syncPeakScoresFromStats = useCallback((currentScore: number) => {
     for (const entry of viewerStatsRef.current.values()) {
@@ -540,6 +620,7 @@ export default function App() {
           winTotal={winProgress.total}
           showWin={canShowWinPanel}
           weaponMode={weaponMode}
+          hasBorrowed={hasBorrowed}
         />
       </div>
 
@@ -704,6 +785,14 @@ export default function App() {
           balanceDockRef={balanceDockRef}
         />
       </div>
+
+      <GameMarketPanel
+        open={showMarketPanel}
+        estateLevel={activeEstateLevel}
+        balance={stats.score}
+        onClose={() => setShowMarketPanel(false)}
+        onSelectGame={handleMarketGameSelect}
+      />
 
       {/* GAME SETTINGS MODAL */}
       <AnimatePresence>

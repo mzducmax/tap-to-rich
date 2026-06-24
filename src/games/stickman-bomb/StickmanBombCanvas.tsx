@@ -31,6 +31,7 @@ import {
   type CounterDisplayStyle,
   EstateScoreFloat,
   SeasonSessionBadge,
+  BORROW_MONEY_LOAN,
 } from './gameplay';
 import {
   BirdFlockLayer,
@@ -84,6 +85,12 @@ import {
   useVerticalLightning,
   useSoccerBallKick,
   useTrumpSpawn,
+  PigBankLayer,
+  usePigBank,
+  PIG_BANK_REWARD,
+  ButterflyLayer,
+  useButterfly,
+  BUTTERFLY_REWARD,
   useKeyActions,
   type AttackAngle,
   type KeyActionContext,
@@ -252,6 +259,22 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetCycle: resetTrumpSpawnCycle,
     } = useTrumpSpawn(trumpSpawnActive);
 
+    const pigBankActive = !freezeSway;
+    const {
+      activeSpawns: activePigBankSpawns,
+      triggerPigBank,
+      completePigBank,
+      resetCycle: resetPigBankCycle,
+    } = usePigBank(pigBankActive);
+
+    const butterflyActive = !freezeSway;
+    const {
+      activeSpawns: activeButterflySpawns,
+      triggerButterfly,
+      completeButterfly,
+      resetCycle: resetButterflyCycle,
+    } = useButterfly(butterflyActive);
+
     const {
       activeEffects: activeHackerEffects,
       triggerHackerEffect,
@@ -266,6 +289,14 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       if (accepted && !isMuted) audioManager.playTrumpSpawn();
       return accepted;
     }, [triggerTrumpSpawn, isMuted]);
+
+    const handlePigBank = useCallback(() => {
+      return triggerPigBank();
+    }, [triggerPigBank]);
+
+    const handleButterfly = useCallback(() => {
+      return triggerButterfly();
+    }, [triggerButterfly]);
 
     const handleHackerEffect = useCallback(() => {
       return triggerHackerEffect();
@@ -426,6 +457,16 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       if (!isMuted) audioManager.playTrumpFanfare();
     }, [applyDelta, isMuted]);
 
+    const triggerPigBankReward = useCallback(() => {
+      applyDelta(PIG_BANK_REWARD, 14, 0.48, { source: 'key-p' });
+      if (!isMuted) audioManager.playBuildChime();
+    }, [applyDelta, isMuted]);
+
+    const triggerButterflyReward = useCallback(() => {
+      applyDelta(BUTTERFLY_REWARD, 7, 0.28, { source: 'key-11' });
+      if (!isMuted) audioManager.playBuildChime();
+    }, [applyDelta, isMuted]);
+
     const resetGame = useCallback(() => {
       clearExplosionTimer();
       setActiveAttacks([]);
@@ -444,6 +485,8 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetVerticalLightningCycle();
       resetSoccerBallCycle();
       resetTrumpSpawnCycle();
+      resetPigBankCycle();
+      resetButterflyCycle();
       resetHackerEffectCycle();
       resetActionSpawnQueue();
       onGameReset();
@@ -455,6 +498,8 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetVerticalLightningCycle,
       resetSoccerBallCycle,
       resetTrumpSpawnCycle,
+      resetPigBankCycle,
+      resetButterflyCycle,
       resetHackerEffectCycle,
       resetAvatarCoinCycle,
       resetPlinkoCycle,
@@ -607,6 +652,8 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         triggerVerticalLightning,
         triggerSoccerBallKick,
         triggerTrumpSpawn: handleTrumpSpawn,
+        triggerPigBank: handlePigBank,
+        triggerButterfly: handleButterfly,
         paused: freezeSway,
         hackerEffectRunning: activeHackerEffects.length > 0,
         plinkoRunning: activePlinkoRounds.length > 0,
@@ -622,6 +669,8 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         triggerVerticalLightning,
         triggerSoccerBallKick,
         handleTrumpSpawn,
+        handlePigBank,
+        handleButterfly,
         freezeSway,
         activeHackerEffects.length,
         activePlinkoRounds.length,
@@ -633,6 +682,14 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     useEffect(() => {
       setGameplayPaused(freezeSway);
     }, [freezeSway]);
+
+    const triggerBorrowMoney = useCallback(() => {
+      applyDelta(BORROW_MONEY_LOAN, 8, 0.25, {
+        source: 'auto',
+      });
+      if (!isMuted) audioManager.playPop(60);
+      return true;
+    }, [applyDelta, isMuted]);
 
     useImperativeHandle(
       ref,
@@ -655,8 +712,24 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           applyDelta(50, 8, 0.2, { source: 'auto' });
           if (!isMuted) audioManager.playPop(80);
         },
+        triggerMoleWave: () => triggerMoleWave(),
+        triggerBirdWave: () => triggerBirdWave(),
+        triggerBorrowMoney,
+        deductBalance: (amount: number) => {
+          if (countRef.current < amount) return false;
+          applyDelta(-amount, 8, 0.3, { source: 'market' });
+          return true;
+        },
       }),
-      [applyDelta, increment, isMuted, resetGame],
+      [
+        applyDelta,
+        increment,
+        isMuted,
+        resetGame,
+        triggerBirdWave,
+        triggerBorrowMoney,
+        triggerMoleWave,
+      ],
     );
 
     useEffect(() => {
@@ -885,6 +958,19 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           gameplayTargetRef={estateTargetRef}
           onReward={triggerTrumpReward}
           onComplete={completeTrumpSpawn}
+        />
+
+        <PigBankLayer
+          spawns={activePigBankSpawns}
+          onReward={triggerPigBankReward}
+          onComplete={completePigBank}
+        />
+
+        <ButterflyLayer
+          spawns={activeButterflySpawns}
+          gameplayTargetRef={estateTargetRef}
+          onReward={triggerButterflyReward}
+          onComplete={completeButterfly}
         />
 
         <HackerEffectLayer

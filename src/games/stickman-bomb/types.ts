@@ -43,4 +43,8 @@ export interface StickmanBombCanvasHandle {
   destroyTopBoxes: (count: number) => void;
   autoBuildBoxes: (count: number) => void;
   triggerAutoBuild50: () => void;
+  triggerMoleWave: () => boolean;
+  triggerBirdWave: () => boolean;
+  triggerBorrowMoney: () => boolean;
+  deductBalance: (amount: number) => boolean;
 }

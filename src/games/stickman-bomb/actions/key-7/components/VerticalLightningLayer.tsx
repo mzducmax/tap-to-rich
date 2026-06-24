@@ -13,7 +13,6 @@ import {
   resizeVerticalLightningCanvas,
   unmountVerticalLightningCanvas,
 } from '../logic/verticalLightningCanvas';
-import { StormCloudCanvas } from './StormCloudCanvas';
 import { VerticalLightningInstance } from './VerticalLightningInstance';
 import { verticalLightningStyles } from '../styles/verticalLightningStyles';
 
@@ -91,7 +90,6 @@ export function VerticalLightningLayer({
       <style>{verticalLightningStyles}</style>
       <div ref={layerRef} className="vertical-lightning-layer" aria-hidden>
         <div className="vertical-lightning-storm-dim" aria-hidden />
-        <StormCloudCanvas layerRef={layerRef} />
         <canvas ref={bindFxCanvas} className="vertical-lightning-fx-canvas" aria-hidden />
         {storms.map((storm) => (
           <VerticalLightningInstance

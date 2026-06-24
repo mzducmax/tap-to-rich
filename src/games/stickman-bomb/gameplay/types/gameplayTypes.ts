@@ -25,11 +25,14 @@ export type ScoreFloatSource =
   | 'key-7'
   | 'key-8'
   | 'key-9'
+  | 'key-p'
+  | 'key-11'
   | 'sheep'
   | 'bird'
   | 'mole'
   | 'auto'
-  | 'system';
+  | 'system'
+  | 'market';
 
 export type { SheepBonusFloat } from '../sheep';
 export type { BirdBonusFloat } from '../birds';

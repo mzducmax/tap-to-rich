@@ -55,7 +55,11 @@ export function useKeyActions(
 
       const ctx = contextRef.current;
       for (const action of actionsRef.current) {
-        if (e.key !== action.key) continue;
+        const keyMatch =
+          action.key.length === 1 && /[a-z]/i.test(action.key)
+            ? e.key.toLowerCase() === action.key.toLowerCase()
+            : e.key === action.key;
+        if (!keyMatch) continue;
         e.preventDefault();
         pushActionSpawnQueue(action.key);
 
