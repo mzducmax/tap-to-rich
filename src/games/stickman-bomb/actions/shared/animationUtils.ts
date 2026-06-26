@@ -140,11 +140,13 @@ export function gentleTossUp(
   x2: number,
   y2: number,
   duration = 420,
+  arcMin = 28,
+  arcFactor = 0.18,
 ) {
   return new Promise<void>((resolve) => {
     let startT: number | null = null;
     let pauseFrame: number | null = null;
-    const arc = Math.max(28, Math.abs(y1 - y2) * 0.18);
+    const arc = Math.max(arcMin, Math.abs(y1 - y2) * arcFactor);
 
     function step(t: number) {
       if (isGameplayPaused()) {

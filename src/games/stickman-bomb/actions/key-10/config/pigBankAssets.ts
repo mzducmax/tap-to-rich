@@ -5,6 +5,5 @@
 
 import pigUrl from '../assets/pig.png';
 import moneyStackUrl from '../assets/money-stack.png';
-import moneyRainUrl from '../assets/money-rain.webm';
 
-export { pigUrl, moneyStackUrl, moneyRainUrl };
+export { pigUrl, moneyStackUrl };

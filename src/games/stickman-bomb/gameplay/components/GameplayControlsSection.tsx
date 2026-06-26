@@ -55,7 +55,7 @@ export function GameplayControlsSection({
       <div className="flex flex-col gap-1.5 mt-0.5">
         {!isGun && (
           <>
-            <ControlRow keys="[1]" action="Drop gift box (+$10)" />
+            <ControlRow keys="[1]" action="Bomb — stickman tosses bomb on estate (−$10 on explode)" />
             <ControlRow keys="[2]" action="Plinko — drag ball on top rail, release to drop; $50 bet × slot multiplier added to assets" />
             <ControlRow keys="[3]" action="Avatar strike — arrows rain on estate (−$5 each)" />
             <ControlRow keys="[4]" action="Avatar coin shower — toss coins into estate (+$5 each)" />

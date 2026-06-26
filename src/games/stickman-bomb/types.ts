@@ -9,7 +9,7 @@ import type { CounterDisplayStyle } from './gameplay';
 import type { WeaponMode } from './gameplay';
 import type { EstateLevel, EstateImageOverrides } from './estate';
 
-export const CHEST_REWARD = 10;
+export const BOMB_PENALTY = 10;
 export const MISS_PENALTY_BOXES = 10;
 
 export interface StickmanBombCanvasProps {

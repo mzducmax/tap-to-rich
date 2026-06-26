@@ -15,6 +15,7 @@ import { key8SoccerBallAction } from './key-8/action';
 import { key9TrumpSpawnAction } from './key-9/action';
 import { keyPPigBankAction } from './key-10/action';
 import { key11ButterflyAction } from './key-11/action';
+import { key12MissileAction } from './key-12/action';
 import type { KeyActionDefinition } from './types';
 
 export const keyActions: KeyActionDefinition[] = [
@@ -30,4 +31,5 @@ export const keyActions: KeyActionDefinition[] = [
   key9TrumpSpawnAction,
   keyPPigBankAction,
   key11ButterflyAction,
+  key12MissileAction,
 ];

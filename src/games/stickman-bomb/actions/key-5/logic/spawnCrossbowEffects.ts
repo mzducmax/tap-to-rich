@@ -26,7 +26,8 @@ function setBurstPosition(burst: HTMLElement, x: number, y: number) {
 }
 
 function replayBurst(burst: HTMLElement) {
-  // Class was stripped at pool-release, so a plain add always starts a fresh animation.
+  burst.classList.remove('divine-crossbow-burst-replay');
+  void burst.offsetWidth;
   burst.classList.add('divine-crossbow-burst-replay');
 }
 

@@ -1,30 +1,31 @@
 /**
- * Gold coin burst when the gift box opens on the counter (+$10).
+ * Explosion effect at the counter when the bomb detonates (−$10).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const COIN_SPARKS = Array.from({ length: 14 }, (_, i) => {
-  const angle = (i / 14) * 360;
+const EXPLOSION_SPARKS = Array.from({ length: 20 }, (_, i) => {
+  const angle = (i / 20) * 360;
   const rad = (angle * Math.PI) / 180;
-  const distance = 42 + (i % 5) * 12;
+  const distance = 72 + (i % 5) * 18;
   return {
     id: i,
     x: Math.cos(rad) * distance,
     y: Math.sin(rad) * distance,
-    size: 14 + (i % 3) * 4,
+    size: 7 + (i % 4) * 4,
+    color: ['#f97316', '#ef4444', '#fbbf24', '#44403c'][i % 4],
     delay: (i % 3) * 0.03,
   };
 });
 
-const COIN_DEBRIS = Array.from({ length: 6 }, (_, i) => ({
+const EXPLOSION_DEBRIS = Array.from({ length: 10 }, (_, i) => ({
   id: i,
-  x: (i % 2 === 0 ? -1 : 1) * (24 + i * 10),
-  y: -28 - i * 10,
-  rotate: i * 40 - 60,
-  delay: i * 0.05,
+  x: (i % 2 === 0 ? -1 : 1) * (38 + i * 14),
+  y: -26 - i * 10,
+  rotate: i * 45 - 90,
+  delay: i * 0.04,
 }));
 
 export function CounterExplosion({ burstId }: { burstId: number }) {
@@ -39,27 +40,27 @@ export function CounterExplosion({ burstId }: { burstId: number }) {
           className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 overflow-visible"
         >
           <motion.div
-            initial={{ scale: 0.1, opacity: 0.85 }}
-            animate={{ scale: 2.8, opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="absolute w-24 h-24 rounded-full border-[4px] border-yellow-400 bg-yellow-300/20"
+            initial={{ scale: 0.1, opacity: 0.95 }}
+            animate={{ scale: 4.8, opacity: 0 }}
+            transition={{ duration: 0.62, ease: 'easeOut' }}
+            className="absolute w-40 h-40 rounded-full border-[6px] border-orange-500 bg-orange-400/30"
           />
 
           <motion.div
-            initial={{ scale: 0.1, opacity: 0.7 }}
-            animate={{ scale: 1.8, opacity: 0 }}
-            transition={{ duration: 0.42, ease: 'easeOut', delay: 0.04 }}
-            className="absolute w-16 h-16 rounded-full border-2 border-amber-200/80"
+            initial={{ scale: 0.1, opacity: 0.8 }}
+            animate={{ scale: 3.2, opacity: 0 }}
+            transition={{ duration: 0.48, ease: 'easeOut', delay: 0.05 }}
+            className="absolute w-28 h-28 rounded-full border-[3px] border-yellow-300/90"
           />
 
           <motion.div
             initial={{ scale: 0, opacity: 1 }}
-            animate={{ scale: [0, 1.6, 1.1], opacity: [1, 0.9, 0] }}
-            transition={{ duration: 0.45, ease: 'easeOut' }}
-            className="absolute w-20 h-20 rounded-full bg-gradient-to-br from-yellow-100 via-amber-300 to-yellow-500 blur-[2px]"
+            animate={{ scale: [0, 2.4, 1.6], opacity: [1, 0.9, 0] }}
+            transition={{ duration: 0.52, ease: 'easeOut' }}
+            className="absolute w-36 h-36 rounded-full bg-gradient-to-br from-yellow-100 via-orange-400 to-red-600 blur-[3px]"
           />
 
-          {COIN_SPARKS.map((spark) => (
+          {EXPLOSION_SPARKS.map((spark) => (
             <motion.div
               key={spark.id}
               initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
@@ -67,17 +68,20 @@ export function CounterExplosion({ burstId }: { burstId: number }) {
                 x: spark.x,
                 y: spark.y,
                 opacity: 0,
-                scale: 0.3,
+                scale: 0.15,
               }}
-              transition={{ duration: 0.55, ease: 'easeOut', delay: spark.delay }}
-              className="absolute select-none"
-              style={{ fontSize: spark.size }}
-            >
-              🪙
-            </motion.div>
+              transition={{ duration: 0.62, ease: 'easeOut', delay: spark.delay }}
+              className="absolute rounded-full"
+              style={{
+                width: spark.size,
+                height: spark.size,
+                backgroundColor: spark.color,
+                boxShadow: `0 0 10px ${spark.color}`,
+              }}
+            />
           ))}
 
-          {COIN_DEBRIS.map((piece) => (
+          {EXPLOSION_DEBRIS.map((piece) => (
             <motion.div
               key={piece.id}
               initial={{ x: 0, y: 0, opacity: 1, rotate: 0 }}
@@ -87,20 +91,33 @@ export function CounterExplosion({ burstId }: { burstId: number }) {
                 opacity: 0,
                 rotate: piece.rotate,
               }}
-              transition={{ duration: 0.62, ease: 'easeOut', delay: piece.delay }}
-              className="absolute text-xl select-none"
-            >
-              💰
-            </motion.div>
+              transition={{ duration: 0.68, ease: 'easeOut', delay: piece.delay }}
+              className="absolute w-4 h-4 bg-stone-700 rounded-sm"
+            />
+          ))}
+
+          {[0, 1, 2, 3].map((i) => (
+            <motion.div
+              key={`smoke-${i}`}
+              initial={{ scale: 0.3, opacity: 0.75, x: (i - 1.5) * 22, y: 0 }}
+              animate={{
+                scale: [0.3, 2.1 + i * 0.35],
+                opacity: [0.75, 0],
+                y: [-12, -68 - i * 18],
+                x: (i - 1.5) * 34,
+              }}
+              transition={{ duration: 0.82, ease: 'easeOut', delay: 0.1 + i * 0.07 }}
+              className="absolute w-20 h-20 rounded-full bg-stone-500/55 blur-lg"
+            />
           ))}
 
           <motion.div
-            initial={{ scale: 0, opacity: 0, rotate: -12 }}
-            animate={{ scale: [0, 1.3, 1], opacity: [0, 1, 0], rotate: 8 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="absolute text-5xl select-none"
+            initial={{ scale: 0, opacity: 0, rotate: -20 }}
+            animate={{ scale: [0, 1.85, 1.35], opacity: [0, 1, 0], rotate: 15 }}
+            transition={{ duration: 0.58, ease: 'easeOut' }}
+            className="absolute text-8xl select-none"
           >
-            +$10
+            💥
           </motion.div>
         </motion.div>
       )}

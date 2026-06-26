@@ -27,6 +27,7 @@ export type ScoreFloatSource =
   | 'key-9'
   | 'key-p'
   | 'key-11'
+  | 'key-i'
   | 'sheep'
   | 'bird'
   | 'mole'

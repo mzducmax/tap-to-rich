@@ -9,12 +9,11 @@ export const PIG_BANK_SPAWN_COOLDOWN_MS = 3200;
 export const PIG_BANK_MAX_CONCURRENT = 1;
 
 /** Pig PNG display size (px). */
-export const PIG_SPRITE_WIDTH = 300;
-export const PIG_SPRITE_HEIGHT = 320;
+export const PIG_SPRITE_WIDTH = 600;
+export const PIG_SPRITE_HEIGHT = 640;
 
 /** Pig descends from above the viewport. */
 export const PIG_DESCEND_MS = 2400;
-export const PIG_TARGET_Y_RATIO = 0.34;
 
 /** Money rain starts after pig nearly lands. */
 export const PIG_RAIN_START_DELAY_MS = 1800;
@@ -66,3 +65,27 @@ export const PIG_BANK_REWARD_HOLD_MS = 720;
 
 export const PIG_BANK_RENDER_DPR = 1.5;
 export const PIG_BANK_BG_KEY_THRESHOLD = 28;
+
+/**
+ * GPU money downpour — every bill is a particle in a single ParticleContainer
+ * sharing one texture, so the whole dense rain is one batched draw call.
+ * Only position + rotation are marked dynamic; scale/color/uv stay static to
+ * keep the per-frame GPU buffer upload minimal.
+ */
+// Bill count scales with viewport area (1 bill per this many CSS px²) so the
+// screen stays evenly dense on any size, capped to keep the buffer bounded.
+export const MONEY_RAIN_AREA_PER_BILL = 7200;
+export const MONEY_RAIN_MIN_COUNT = 140;
+export const MONEY_RAIN_MAX_COUNT = 520;
+/** Bill on-screen width range (px) — varied sizes read as depth. */
+export const MONEY_RAIN_BILL_MIN_W = 38;
+export const MONEY_RAIN_BILL_MAX_W = 78;
+/** Fall speed range (px/sec). */
+export const MONEY_RAIN_FALL_MIN = 420;
+export const MONEY_RAIN_FALL_MAX = 920;
+/** Horizontal sway (px) + spin (rad/sec) for fluttering bills. */
+export const MONEY_RAIN_SWAY_MIN = 10;
+export const MONEY_RAIN_SWAY_MAX = 44;
+export const MONEY_RAIN_SPIN_MAX = 3.2;
+/** Game-screen shake amplitude (px) while the downpour is active. */
+export const MONEY_RAIN_SHAKE_PX = 9;

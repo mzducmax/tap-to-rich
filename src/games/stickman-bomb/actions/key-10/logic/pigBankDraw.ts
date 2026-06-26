@@ -22,6 +22,20 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }
 
+export function computePigSpriteDrawSize(img: HTMLImageElement, progress: number) {
+  const pop = easeOutCubic(Math.min(1, progress));
+  const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+  let width = PIG_SPRITE_WIDTH * (0.82 + pop * 0.18);
+  let height = PIG_SPRITE_HEIGHT * (0.82 + pop * 0.18);
+  if (aspect > width / height) {
+    height = width / aspect;
+  } else {
+    width = height * aspect;
+  }
+
+  return { width, height };
+}
+
 function drawPigSprite(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -31,14 +45,7 @@ function drawPigSprite(
   alpha: number,
 ) {
   const pop = easeOutCubic(Math.min(1, progress));
-  const aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
-  let w = PIG_SPRITE_WIDTH * (0.82 + pop * 0.18);
-  let h = PIG_SPRITE_HEIGHT * (0.82 + pop * 0.18);
-  if (aspect > w / h) {
-    h = w / aspect;
-  } else {
-    w = h * aspect;
-  }
+  const { width: w, height: h } = computePigSpriteDrawSize(img, progress);
 
   const x = cx - w / 2;
   const y = cy - h / 2;

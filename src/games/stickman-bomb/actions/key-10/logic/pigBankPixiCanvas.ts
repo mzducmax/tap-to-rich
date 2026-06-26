@@ -5,26 +5,36 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-import { Application, Sprite, Texture } from 'pixi.js';
+import { Application, Particle, ParticleContainer, Sprite, Texture } from 'pixi.js';
 import { isGameplayPaused } from '../../../gameplay/logic/gameplayPause';
 import {
   registerAvatarMotionTick,
   unregisterAvatarMotionTick,
 } from '../../key-3/logic/avatarMotionTicker';
-import { pigUrl } from '../config/pigBankAssets';
+import { pigUrl, moneyStackUrl } from '../config/pigBankAssets';
 import {
+  MONEY_RAIN_AREA_PER_BILL,
+  MONEY_RAIN_BILL_MAX_W,
+  MONEY_RAIN_BILL_MIN_W,
+  MONEY_RAIN_FALL_MAX,
+  MONEY_RAIN_FALL_MIN,
+  MONEY_RAIN_MAX_COUNT,
+  MONEY_RAIN_MIN_COUNT,
+  MONEY_RAIN_SPIN_MAX,
+  MONEY_RAIN_SWAY_MAX,
+  MONEY_RAIN_SWAY_MIN,
   MONEY_VIDEO_FILL_MS,
   PIG_BANK_FADE_MS,
   PIG_BANK_RENDER_DPR,
   PIG_BANK_REWARD_HOLD_MS,
   PIG_BANK_BG_KEY_THRESHOLD,
   PIG_DESCEND_MS,
-  PIG_TARGET_Y_RATIO,
 } from '../config/pigBankConfig';
-import { drawPigBankFrame, type PigDrawState } from './pigBankDraw';
+import { computePigSpriteDrawSize, drawPigBankFrame, type PigDrawState } from './pigBankDraw';
 
 export type PigBankSpawnSpec = {
   onReward?: () => void;
+  onRainChange?: (raining: boolean) => void;
 };
 
 type ActiveSession = PigDrawState & {
@@ -32,7 +42,9 @@ type ActiveSession = PigDrawState & {
   phase: 'descend' | 'rain' | 'reward' | 'fade' | 'done';
   phaseStart: number;
   rewardFired: boolean;
+  rainAnnounced: boolean;
   onReward?: () => void;
+  onRainChange?: (raining: boolean) => void;
   resolve: () => void;
 };
 
@@ -43,6 +55,24 @@ let offscreenCanvas: HTMLCanvasElement | null = null;
 let offscreenCtx: CanvasRenderingContext2D | null = null;
 let pigImg: HTMLImageElement | null = null;
 let imgReady = false;
+
+// ---- GPU money downpour (single batched ParticleContainer) ----
+type BillMeta = {
+  vy: number; // fall speed (px/s)
+  baseX: number; // sway centre
+  swayAmp: number;
+  swaySpeed: number;
+  swayPhase: number;
+  vr: number; // spin (rad/s)
+};
+let moneyLayer: ParticleContainer | null = null;
+let moneyTexture: Texture | null = null;
+let moneyTextureReady = false;
+let moneyParticles: Particle[] = [];
+let moneyMeta: BillMeta[] = [];
+let moneyBaseScale = 1; // texture-px → 1px width
+let lastRainTime = 0;
+let rainAlpha = 0; // 0..1 global fade for the whole downpour
 
 let logicalWidth = 0;
 let logicalHeight = 0;
@@ -113,6 +143,155 @@ function loadImages() {
     imgReady = true;
   };
   raw.src = pigUrl;
+
+  loadMoneyTexture();
+}
+
+function loadMoneyTexture() {
+  if (moneyTexture) return;
+
+  const raw = new Image();
+  raw.decoding = 'async';
+  raw.onload = () => {
+    void stripBlackBackground(raw).then((img) => {
+      moneyTexture = Texture.from(img);
+      moneyBaseScale = 1 / Math.max(1, moneyTexture.width);
+      moneyTextureReady = true;
+    });
+  };
+  raw.onerror = () => {
+    moneyTexture = Texture.from(raw);
+    moneyBaseScale = 1 / Math.max(1, moneyTexture.width || 1);
+    moneyTextureReady = true;
+  };
+  raw.src = moneyStackUrl;
+}
+
+function rand(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+/** Aspect ratio of one bill (height / width). */
+function billAspect(): number {
+  if (!moneyTexture || moneyTexture.width <= 0) return 0.5;
+  return moneyTexture.height / moneyTexture.width;
+}
+
+/**
+ * Reset one bill's motion + position. Scale (a static GPU property) is assigned
+ * once at pool build and never touched here, so recycling only writes the
+ * dynamic position/rotation buffers — no static re-upload.
+ */
+function recycleBill(i: number, spawnAbove: boolean) {
+  const p = moneyParticles[i]!;
+  const m = moneyMeta[i]!;
+  const aspect = billAspect();
+  m.baseX = rand(-MONEY_RAIN_SWAY_MAX, logicalWidth + MONEY_RAIN_SWAY_MAX);
+  m.swayAmp = rand(MONEY_RAIN_SWAY_MIN, MONEY_RAIN_SWAY_MAX);
+  m.swaySpeed = rand(0.6, 2.4);
+  m.swayPhase = Math.random() * Math.PI * 2;
+  m.vy = rand(MONEY_RAIN_FALL_MIN, MONEY_RAIN_FALL_MAX);
+  m.vr = rand(-MONEY_RAIN_SPIN_MAX, MONEY_RAIN_SPIN_MAX);
+  const billH = (p.scaleX / moneyBaseScale) * aspect;
+  // Initial fill spreads bills across the whole height; recycling drops them in
+  // just above the top edge.
+  p.y = spawnAbove
+    ? -billH - Math.random() * logicalHeight * 0.6
+    : rand(-billH, logicalHeight);
+  p.x = m.baseX + Math.sin(m.swayPhase) * m.swayAmp;
+  p.rotation = Math.random() * Math.PI * 2;
+}
+
+function targetBillCount(): number {
+  const area = Math.max(1, logicalWidth * logicalHeight);
+  const n = Math.round(area / MONEY_RAIN_AREA_PER_BILL);
+  return Math.max(MONEY_RAIN_MIN_COUNT, Math.min(MONEY_RAIN_MAX_COUNT, n));
+}
+
+/** (Re)build the bill pool for the current viewport. One container, one texture. */
+function rebuildMoneyPool() {
+  if (!app || !moneyTexture || logicalWidth <= 0 || logicalHeight <= 0) return;
+
+  if (!moneyLayer) {
+    moneyLayer = new ParticleContainer({
+      texture: moneyTexture,
+      // Bills move + spin every frame; size/colour/uv are fixed → keep their
+      // GPU buffers static so only the position/rotation buffer re-uploads.
+      dynamicProperties: {
+        position: true,
+        rotation: true,
+        scale: false,
+        color: false,
+        uvs: false,
+      },
+      roundPixels: false,
+    });
+    moneyLayer.visible = false;
+    app.stage.addChild(moneyLayer);
+  }
+
+  const want = targetBillCount();
+  if (moneyParticles.length === want) return;
+
+  moneyLayer.removeParticles();
+  moneyParticles = [];
+  moneyMeta = [];
+  for (let i = 0; i < want; i += 1) {
+    const w = rand(MONEY_RAIN_BILL_MIN_W, MONEY_RAIN_BILL_MAX_W);
+    const s = w * moneyBaseScale;
+    const p = new Particle({
+      texture: moneyTexture,
+      anchorX: 0.5,
+      anchorY: 0.5,
+      scaleX: s,
+      scaleY: s,
+    });
+    moneyParticles.push(p);
+    moneyMeta.push({ vy: 0, baseX: 0, swayAmp: 0, swaySpeed: 0, swayPhase: 0, vr: 0 });
+    recycleBill(i, false);
+    moneyLayer.addParticle(p);
+  }
+  // One-time flush of the static (scale/uv/colour) buffers.
+  moneyLayer.update();
+}
+
+/** Advance every bill by dt seconds and flag the position/rotation buffer. */
+function updateMoneyRain(dtSeconds: number) {
+  if (!moneyLayer || moneyParticles.length === 0) return;
+  const dt = Math.min(0.05, dtSeconds); // clamp after tab stalls
+  const aspect = billAspect();
+
+  for (let i = 0; i < moneyParticles.length; i += 1) {
+    const p = moneyParticles[i]!;
+    const m = moneyMeta[i]!;
+    p.y += m.vy * dt;
+    m.swayPhase += m.swaySpeed * dt;
+    p.x = m.baseX + Math.sin(m.swayPhase) * m.swayAmp;
+    p.rotation += m.vr * dt;
+
+    const billH = (p.scaleX / moneyBaseScale) * aspect;
+    if (p.y - billH * 0.5 > logicalHeight) {
+      recycleBill(i, true);
+    }
+  }
+  // No update() here: position + rotation are dynamic properties, so their GPU
+  // buffers re-upload automatically each render. Static buffers stay untouched.
+}
+
+function startMoneyRain() {
+  rebuildMoneyPool();
+  if (!moneyLayer) return;
+  // Re-seed positions across the full height for an instant dense screen.
+  for (let i = 0; i < moneyParticles.length; i += 1) recycleBill(i, false);
+  rainAlpha = 1;
+  moneyLayer.alpha = 1;
+  moneyLayer.visible = true;
+  lastRainTime = 0;
+}
+
+function stopMoneyRain() {
+  rainAlpha = 0;
+  if (moneyLayer) moneyLayer.visible = false;
 }
 
 function resizeOffscreenBuffer(width: number, height: number) {
@@ -129,6 +308,12 @@ function resizeOffscreenBuffer(width: number, height: number) {
   app.renderer.resize(width, height);
   canvasUploaded = false;
   canvasSig = '';
+
+  // Re-density + re-seed the downpour for the new viewport if it's running.
+  if (moneyTextureReady && moneyLayer && moneyLayer.visible) {
+    rebuildMoneyPool();
+    for (let i = 0; i < moneyParticles.length; i += 1) recycleBill(i, false);
+  }
 }
 
 function uploadOffscreenTexture() {
@@ -137,7 +322,7 @@ function uploadOffscreenTexture() {
 
 function advanceSession(session: ActiveSession, now: number) {
   const elapsed = now - session.phaseStart;
-  const targetY = logicalHeight * PIG_TARGET_Y_RATIO;
+  const targetY = pigImg ? computePigSpriteDrawSize(pigImg, 1).height * 0.5 : 0;
   const startY = -logicalHeight * 0.22;
 
   switch (session.phase) {
@@ -159,18 +344,28 @@ function advanceSession(session: ActiveSession, now: number) {
       session.pigX = logicalWidth * 0.5;
       session.descendProgress = 1;
 
+      // Kick off the GPU downpour + game-screen shake on the first rain frame.
+      if (!session.rainAnnounced) {
+        session.rainAnnounced = true;
+        startMoneyRain();
+        session.onRainChange?.(true);
+      }
+
       // The money downpour fills the whole screen over a fixed duration; then
       // everything fades out before the reward lands on the house.
       if (elapsed >= MONEY_VIDEO_FILL_MS) {
         session.phase = 'fade';
         session.phaseStart = now;
+        session.onRainChange?.(false);
       }
       break;
     }
     case 'fade': {
-      // Pig + money video fade out together (the video fades via CSS in React).
+      // Pig + money downpour fade out together before the reward lands.
       session.pigAlpha = Math.max(0, 1 - elapsed / PIG_BANK_FADE_MS);
+      rainAlpha = session.pigAlpha;
       if (elapsed >= PIG_BANK_FADE_MS) {
+        stopMoneyRain();
         session.phase = 'reward';
         session.phaseStart = now;
         session.pigAlpha = 0;
@@ -199,6 +394,14 @@ function renderFrame(now: number) {
 
   for (const session of activeSessions) {
     if (session.phase !== 'done') advanceSession(session, now);
+  }
+
+  // Animate the GPU money downpour (one batched container).
+  if (moneyLayer && moneyLayer.visible) {
+    const dt = lastRainTime > 0 ? (now - lastRainTime) / 1000 : 0;
+    lastRainTime = now;
+    if (dt > 0) updateMoneyRain(dt);
+    moneyLayer.alpha = rainAlpha;
   }
 
   const primary = activeSessions[0];
@@ -319,6 +522,7 @@ export function unmountPigBankCanvas(): void {
   unregisterAvatarMotionTick(syncPixiTicker);
   tickRegistered = false;
 
+  abortMoneyRain();
   for (const session of activeSessions) {
     session.resolve();
   }
@@ -326,6 +530,15 @@ export function unmountPigBankCanvas(): void {
 
   canvasSig = '';
   canvasUploaded = false;
+
+  // Money layer + texture are destroyed with the app (children/texture: true).
+  moneyLayer = null;
+  moneyParticles = [];
+  moneyMeta = [];
+  moneyTexture = null;
+  moneyTextureReady = false;
+  rainAlpha = 0;
+  lastRainTime = 0;
 
   displaySprite?.destroy();
   displaySprite = null;
@@ -341,7 +554,16 @@ export function unmountPigBankCanvas(): void {
   logicalHeight = 0;
 }
 
+/** Tell any rain-announcing session the downpour stopped + hide the bills. */
+function abortMoneyRain() {
+  for (const session of activeSessions) {
+    if (session.rainAnnounced) session.onRainChange?.(false);
+  }
+  stopMoneyRain();
+}
+
 export function cancelPigBankSession(): void {
+  abortMoneyRain();
   for (const session of activeSessions) {
     session.resolve();
   }
@@ -378,7 +600,9 @@ export function spawnPigBankSession(spec: PigBankSpawnSpec): Promise<void> {
       phase: 'descend',
       phaseStart: now,
       rewardFired: false,
+      rainAnnounced: false,
       onReward: spec.onReward,
+      onRainChange: spec.onRainChange,
       resolve,
     });
     syncTickerRegistration();

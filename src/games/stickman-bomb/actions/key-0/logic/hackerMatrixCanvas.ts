@@ -107,8 +107,11 @@ export function unmountHackerMatrixCanvas(): void {
 function drawFrame(): void {
   if (!ctx || !canvasEl) return;
 
+  // Fade prior frames toward transparent (keeps the live game visible behind).
+  ctx.globalCompositeOperation = 'destination-out';
   ctx.fillStyle = `rgba(0, 0, 0, ${HACKER_MATRIX_TRAIL_ALPHA})`;
   ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.globalCompositeOperation = 'source-over';
 
   ctx.font = `${HACKER_MATRIX_FONT_PX}px ui-monospace, SFMono-Regular, Menlo, monospace`;
   ctx.textBaseline = 'top';
@@ -122,16 +125,45 @@ function drawFrame(): void {
     ctx.fillStyle = 'rgba(0, 255, 65, 0.22)';
     ctx.fillText(col.tail, x, y);
 
-    ctx.fillStyle = '#00ff41';
+    // Madness: occasional blood-red or blinding-white glitch heads.
+    const roll = Math.random();
+    if (roll < 0.04) {
+      ctx.fillStyle = '#ff2d55';
+      ctx.shadowColor = '#ff2d55';
+      ctx.shadowBlur = 8;
+    } else if (roll < 0.07) {
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#00ff41';
+      ctx.shadowBlur = 10;
+    } else {
+      ctx.fillStyle = '#00ff41';
+    }
     ctx.fillText(col.head, x, y);
+    ctx.shadowBlur = 0;
 
-    col.y += col.speed;
-    if (Math.random() < 0.04) col.head = pickChar();
-    if (Math.random() < 0.02) col.tail = pickChar();
+    // Faster, jittery fall.
+    col.y += col.speed * 1.8 + (Math.random() < 0.1 ? 4 : 0);
+    if (Math.random() < 0.12) col.head = pickChar();
+    if (Math.random() < 0.06) col.tail = pickChar();
     if (y > cssHeight + HACKER_MATRIX_FONT_PX) {
       col.y = -(Math.random() * 12);
       col.head = pickChar();
       col.tail = pickChar();
+    }
+  }
+
+  // Madness: random horizontal glitch slices — shifted noise bars.
+  if (Math.random() < 0.22) {
+    const sliceCount = 1 + ((Math.random() * 3) | 0);
+    for (let s = 0; s < sliceCount; s += 1) {
+      const sy = Math.random() * cssHeight;
+      const sh = 4 + Math.random() * 22;
+      const shift = (Math.random() - 0.5) * 40;
+      ctx.fillStyle =
+        Math.random() < 0.5
+          ? 'rgba(255, 45, 85, 0.35)'
+          : 'rgba(0, 200, 255, 0.30)';
+      ctx.fillRect(shift, sy, cssWidth, sh);
     }
   }
 
@@ -167,6 +199,5 @@ export function stopHackerMatrixLoop(): void {
 
 export function clearHackerMatrixCanvas(): void {
   if (!ctx) return;
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
 }

@@ -1,16 +1,10 @@
 /**
- * Pixi compositor (pig + reward) plus the money-rain video overlay (key P).
+ * Pixi compositor (pig + falling money + reward) for key P.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { ActivePigBankSpawn } from '../hooks/usePigBank';
-import { moneyRainUrl } from '../config/pigBankAssets';
-import {
-  MONEY_VIDEO_FILL_MS,
-  MONEY_VIDEO_START_DELAY_MS,
-  PIG_DESCEND_MS,
-} from '../config/pigBankConfig';
 import {
   mountPigBankCanvas,
   resizePigBankCanvas,
@@ -22,16 +16,17 @@ import { pigBankStyles } from '../styles/pigBankStyles';
 type PigBankLayerProps = {
   spawns: ActivePigBankSpawn[];
   onReward: () => void;
+  onRainChange?: (raining: boolean) => void;
   onComplete: (spawnId: number) => void;
 };
 
-// When (from spawn start) the screen is full of money and it begins to vanish.
-// The reward (+$ on the house) fires only after this fade completes.
-const VIDEO_FADE_START_MS = PIG_DESCEND_MS + MONEY_VIDEO_FILL_MS;
-
-export function PigBankLayer({ spawns, onReward, onComplete }: PigBankLayerProps) {
+export function PigBankLayer({
+  spawns,
+  onReward,
+  onRainChange,
+  onComplete,
+}: PigBankLayerProps) {
   const layerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   const bindFxCanvas = useCallback((el: HTMLCanvasElement | null) => {
     if (el) {
@@ -64,55 +59,12 @@ export function PigBankLayer({ spawns, onReward, onComplete }: PigBankLayerProps
     };
   }, [spawns.length > 0]);
 
-  // Drive the money-rain video in sync with the pig session timeline.
-  const firstSpawnId = spawns[0]?.id ?? null;
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || firstSpawnId == null) return;
-
-    video.style.opacity = '0';
-    try {
-      video.pause();
-      video.currentTime = 0;
-    } catch {
-      /* ignore */
-    }
-
-    const playTimer = window.setTimeout(() => {
-      try {
-        video.currentTime = 0;
-      } catch {
-        /* ignore */
-      }
-      video.style.opacity = '1';
-      void video.play().catch(() => {});
-    }, MONEY_VIDEO_START_DELAY_MS);
-
-    const fadeTimer = window.setTimeout(() => {
-      video.style.opacity = '0';
-    }, VIDEO_FADE_START_MS);
-
-    return () => {
-      window.clearTimeout(playTimer);
-      window.clearTimeout(fadeTimer);
-    };
-  }, [firstSpawnId]);
-
   if (spawns.length === 0) return null;
 
   return (
     <>
       <style>{pigBankStyles}</style>
       <div ref={layerRef} className="pig-bank-layer" aria-hidden>
-        <video
-          ref={videoRef}
-          className="pig-bank-money-video"
-          src={moneyRainUrl}
-          muted
-          playsInline
-          preload="auto"
-          aria-hidden
-        />
         <canvas ref={bindFxCanvas} className="pig-bank-fx-canvas" aria-hidden />
         {spawns.map((spawn) => (
           <PigBankInstance
@@ -120,6 +72,7 @@ export function PigBankLayer({ spawns, onReward, onComplete }: PigBankLayerProps
             spawnId={spawn.id}
             layerRef={layerRef}
             onReward={onReward}
+            onRainChange={onRainChange}
             onComplete={() => onComplete(spawn.id)}
           />
         ))}

@@ -34,7 +34,7 @@ export type ActionQueueVisual = {
 
 const STATIC_VISUALS: Record<string, Omit<ActionQueueVisual, 'key'>> = {
   [KEY_0_HACKER]: { label: 'Hack', emoji: '💻', imageUrl: hackerUrl },
-  [KEY_1_BOMB]: { label: 'Gift', emoji: '🎁' },
+  [KEY_1_BOMB]: { label: 'Bomb', emoji: '💣' },
   [KEY_2_PLINKO]: { label: 'Plinko', emoji: '🎯' },
   [KEY_3_AVATAR_STRIKE]: { label: 'Strike', emoji: '🎯' },
   [KEY_4_AVATAR_COIN]: { label: 'Coin', emoji: '🪙' },

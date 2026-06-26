@@ -198,7 +198,7 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
     case 'key-0':
       return { color: '#00ff41', glow: 'rgba(0,255,65,0.85)', stroke: '#14532d' };
     case 'key-1':
-      return { color: '#fde047', glow: 'rgba(253,224,71,0.9)', stroke: '#854d0e' };
+      return { color: '#f87171', glow: 'rgba(248,113,113,0.85)', stroke: '#7f1d1d' };
     case 'key-2':
       return { color: '#fef08a', glow: 'rgba(253,224,71,0.92)', stroke: '#78350f' };
     case 'key-3':
@@ -227,6 +227,8 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
       return { color: '#fbbf24', glow: 'rgba(251,191,36,0.9)', stroke: '#14532d' };
     case 'key-11':
       return { color: '#fde047', glow: 'rgba(251,191,36,0.9)', stroke: '#78350f' };
+    case 'key-i':
+      return { color: '#fb923c', glow: 'rgba(248,113,113,0.9)', stroke: '#7f1d1d' };
     case 'gun':
       return { color: '#60a5fa', glow: 'rgba(96,165,250,0.64)', stroke: '#1e3a8a' };
     case 'sheep':

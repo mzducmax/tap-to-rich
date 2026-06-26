@@ -296,12 +296,12 @@ export const stickmanStyles = `
     transform: rotate(-18deg);
   }
 
-  .sb-pose-toss-up .sb-hand-chest {
+  .sb-pose-toss-up .sb-hand-bomb {
     bottom: auto;
-    top: -18px;
+    top: -30px;
     left: 50%;
-    margin-left: -12px;
-    animation: sb-gift-toss-hold 0.4s ease-in-out infinite alternate;
+    margin-left: -14px;
+    animation: sb-bomb-toss-hold 0.4s ease-in-out infinite alternate;
   }
 
   @keyframes sb-toss-up-arm {
@@ -309,7 +309,7 @@ export const stickmanStyles = `
     to { transform: rotate(-175deg); }
   }
 
-  @keyframes sb-gift-toss-hold {
+  @keyframes sb-bomb-toss-hold {
     from { transform: translateY(0) rotate(-6deg); }
     to { transform: translateY(-4px) rotate(6deg); }
   }
@@ -397,17 +397,19 @@ export const stickmanStyles = `
     100% { transform: rotate(70deg); }
   }
 
-  /* Money briefcase in hand */
-  .sb-hand-chest {
+  /* Bomb in hand */
+  .sb-hand-bomb {
     position: absolute;
-    bottom: -22px;
+    bottom: -4px;
     left: 50%;
-    margin-left: -19px;
+    margin-left: -14px;
+    font-size: 26px;
     line-height: 1;
-    animation: sb-chest-hold 0.5s ease-in-out infinite alternate;
+    filter: drop-shadow(1px 3px 3px rgba(0,0,0,0.3));
+    animation: sb-bomb-hold 0.5s ease-in-out infinite alternate;
   }
 
-  @keyframes sb-chest-hold {
+  @keyframes sb-bomb-hold {
     from { transform: rotate(-8deg) translateY(0); }
     to { transform: rotate(8deg) translateY(-2px); }
   }

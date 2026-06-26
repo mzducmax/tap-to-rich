@@ -83,5 +83,5 @@ export {
 } from './actions';
 export { EstateSettingsSection, scoreToEstateLevel, useEstateImageSettings } from './estate';
 export type { EstateImageOverrides, EstateLevel } from './estate';
-export { CHEST_REWARD, MISS_PENALTY_BOXES } from './types';
+export { BOMB_PENALTY, MISS_PENALTY_BOXES } from './types';
 export type { StickmanBombCanvasHandle, StickmanBombCanvasProps } from './types';

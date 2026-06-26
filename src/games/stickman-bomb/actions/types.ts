@@ -17,6 +17,7 @@ export const KEY_8_SOCCER_BALL = '8';
 export const KEY_9_TRUMP_SPAWN = '9';
 export const KEY_P_PIG_BANK = 'p';
 export const KEY_O_BUTTERFLY = 'o';
+export const KEY_I_MISSILE = 'i';
 
 export type KeyActionContext = {
   triggerHackerEffect: () => void;
@@ -31,6 +32,7 @@ export type KeyActionContext = {
   triggerTrumpSpawn: () => void;
   triggerPigBank: () => void;
   triggerButterfly: () => void;
+  triggerMissileStrike: () => void;
   paused: boolean;
   /** True while a key-0 hacker effect instance is actively playing. */
   hackerEffectRunning: boolean;

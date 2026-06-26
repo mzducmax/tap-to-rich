@@ -109,7 +109,6 @@ export function acquireLaunchBurst(layer: HTMLElement): HTMLDivElement {
 }
 
 export function releaseLaunchBurst(burst: HTMLDivElement) {
-  burst.classList.remove('divine-crossbow-burst-replay');
   burst.style.display = 'none';
   burst.remove();
   launchBurstPool.push(burst);
@@ -123,7 +122,6 @@ export function acquireVolleyLaunchBurst(layer: HTMLElement): HTMLDivElement {
 }
 
 export function releaseVolleyLaunchBurst(burst: HTMLDivElement) {
-  burst.classList.remove('divine-crossbow-burst-replay');
   burst.style.display = 'none';
   burst.remove();
   volleyLaunchBurstPool.push(burst);
@@ -137,7 +135,6 @@ export function acquireHitBurst(layer: HTMLElement): HTMLDivElement {
 }
 
 export function releaseHitBurst(burst: HTMLDivElement) {
-  burst.classList.remove('divine-crossbow-burst-replay');
   burst.style.display = 'none';
   burst.remove();
   hitBurstPool.push(burst);

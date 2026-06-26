@@ -77,7 +77,8 @@ function DivineCrossbowInstanceInner({
         y: tipRect.top - containerRect.top + tipRect.height * 0.5,
       };
 
-      // Rig has no recoil class at session start — add directly, no offsetWidth reflow needed.
+      rigEl.classList.remove('divine-crossbow-rig-recoil');
+      void rigEl.offsetWidth;
       rigEl.classList.add('divine-crossbow-rig-recoil');
       spawnVolleyLaunchEffect(fxLayer, launch);
 

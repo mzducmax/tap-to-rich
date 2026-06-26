@@ -129,6 +129,44 @@ export const plinkoStyles = `
     z-index: 1;
   }
 
+  .plinko-board__title {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .plinko-board__title-icon {
+    font-size: 1.9rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+    animation: plinko-title-bob 2.2s ease-in-out infinite;
+  }
+
+  .plinko-board__title-text {
+    font-family: "Arial Black", Arial, sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    background: linear-gradient(180deg, #fef9c3 0%, #fde047 45%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 10px rgba(250, 204, 21, 0.35);
+    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+  }
+
+  @keyframes plinko-title-bob {
+    0%, 100% { transform: translateY(0) rotate(-6deg); }
+    50% { transform: translateY(-4px) rotate(6deg); }
+  }
+
   .plinko-stats {
     flex-shrink: 0;
     width: ${PLINKO_STATS_W}px;
@@ -154,17 +192,33 @@ export const plinkoStyles = `
   .plinko-stats__title {
     flex-shrink: 0;
     min-height: ${PLINKO_STATS_TITLE_H}px;
-    padding: 10px 8px 8px;
+    padding: 8px 8px 6px;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
     font-family: "Nunito", "Trebuchet MS", sans-serif;
-    font-size: 0.72rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
     text-transform: uppercase;
     text-align: center;
-    color: rgba(253, 224, 71, 0.95);
     border-bottom: 1px solid rgba(251, 191, 36, 0.2);
     background: linear-gradient(180deg, rgba(253, 224, 71, 0.08) 0%, transparent 100%);
+  }
+
+  .plinko-stats__title-game {
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: #fde047;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  }
+
+  .plinko-stats__title-sub {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: rgba(255, 255, 255, 0.7);
   }
 
   .plinko-stats__rows {
@@ -458,5 +512,61 @@ export const plinkoStyles = `
     0% { opacity: 0; transform: translate(-50%, -100%) scale(0.5); }
     55% { opacity: 1; transform: translate(-50%, -100%) scale(1.12); }
     100% { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+  }
+
+  .plinko-celebrate {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .plinko-celebrate__banner {
+    position: absolute;
+    top: ${Math.round(PLINKO_HEADER_H * 0.62)}px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "Arial Black", Arial, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    color: #fff;
+    text-shadow:
+      0 0 16px rgba(250, 204, 21, 0.9),
+      0 2px 0 #b45309,
+      0 4px 12px rgba(0, 0, 0, 0.5);
+    animation: plinko-celebrate-pop 0.5s cubic-bezier(0.22, 1.3, 0.36, 1) forwards;
+  }
+
+  .plinko-celebrate__confetti {
+    position: absolute;
+    inset: 0;
+  }
+
+  .plinko-confetti {
+    position: absolute;
+    top: -16px;
+    width: 9px;
+    height: 14px;
+    border-radius: 2px;
+    opacity: 0;
+    animation-name: plinko-confetti-fall;
+    animation-timing-function: ease-in;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes plinko-celebrate-pop {
+    0% { opacity: 0; transform: translateX(-50%) scale(0.4) rotate(-8deg); }
+    60% { opacity: 1; transform: translateX(-50%) scale(1.15) rotate(4deg); }
+    100% { opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+  }
+
+  @keyframes plinko-confetti-fall {
+    0% { opacity: 0; transform: translateY(0) rotate(0deg); }
+    10% { opacity: 1; }
+    100% { opacity: 0.9; transform: translateY(${PLINKO_BOARD_H + 40}px) rotate(540deg); }
   }
 `;

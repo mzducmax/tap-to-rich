@@ -1,5 +1,5 @@
 /**
- * Key [1] — drop gift box reward (+$10).
+ * Key [1] — stickman carries bomb; detonation deducts $10.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,7 +7,7 @@ import { KEY_1_BOMB, canRunGameplayKey, type KeyActionDefinition } from '../type
 
 export const key1BombAction: KeyActionDefinition = {
   key: KEY_1_BOMB,
-  label: 'Drop gift box',
+  label: 'Bomb',
   canRun: canRunGameplayKey,
   run: ({ startBombing }) => startBombing(),
 };

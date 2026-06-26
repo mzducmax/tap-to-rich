@@ -19,7 +19,8 @@ export const PLINKO_CENTER_REPEL_DRIFT = 1.35;
 export const PLINKO_CENTER_REPEL_CORE = 0.3;
 /** Outward nudge once path clears the grey 0.5–1× band. */
 export const PLINKO_MID_DRIFT = 1.925;
-export const PLINKO_MID_BIAS = 0.18;
+/** Outward mid-band bias — raised from 0.18 so high-value slots (≥2×) gain landing share (~34.6% → ~38.5%). */
+export const PLINKO_MID_BIAS = 0.32;
 export const PLINKO_MID_DEPTH = 0.055;
 /** Depth span before mid-band pull reaches full strength. */
 export const PLINKO_MID_RAMP = 2.1;

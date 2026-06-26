@@ -17,6 +17,7 @@ type PigBankInstanceProps = {
   spawnId: number;
   layerRef: React.RefObject<HTMLDivElement | null>;
   onReward: () => void;
+  onRainChange?: (raining: boolean) => void;
   onComplete: () => void;
 };
 
@@ -24,12 +25,15 @@ function PigBankInstanceInner({
   spawnId,
   layerRef,
   onReward,
+  onRainChange,
   onComplete,
 }: PigBankInstanceProps) {
   const onRewardRef = useRef(onReward);
+  const onRainChangeRef = useRef(onRainChange);
   const onCompleteRef = useRef(onComplete);
   const sequenceIdRef = useRef(0);
   onRewardRef.current = onReward;
+  onRainChangeRef.current = onRainChange;
   onCompleteRef.current = onComplete;
 
   useLayoutEffect(() => {
@@ -68,9 +72,15 @@ function PigBankInstanceInner({
           if (cancelled || sequenceId !== sequenceIdRef.current) return;
           onRewardRef.current();
         },
+        onRainChange: (raining) => {
+          if (cancelled || sequenceId !== sequenceIdRef.current) return;
+          onRainChangeRef.current?.(raining);
+        },
       });
 
       if (cancelled || sequenceId !== sequenceIdRef.current) return;
+      // Defensive: make sure the shake is cleared once the session ends.
+      onRainChangeRef.current?.(false);
       onCompleteRef.current();
     }
 
@@ -79,6 +89,8 @@ function PigBankInstanceInner({
     return () => {
       cancelled = true;
       cancelPigBankSession();
+      // Stop the game-screen shake even when torn down mid-rain.
+      onRainChangeRef.current?.(false);
     };
   }, [spawnId, layerRef]);
 

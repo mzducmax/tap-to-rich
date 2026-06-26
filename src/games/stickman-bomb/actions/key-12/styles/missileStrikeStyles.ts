@@ -1,18 +1,20 @@
 /**
- * Pig bank layer styles (key P).
+ * Missile strike overlay styles (key i).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-export const pigBankStyles = `
-  .pig-bank-layer {
-    position: absolute;
+export const MISSILE_LAYER_Z = 205;
+
+export const missileStrikeStyles = `
+  .missile-strike-layer {
+    position: fixed;
     inset: 0;
     pointer-events: none;
     overflow: hidden;
-    z-index: 54;
+    z-index: ${MISSILE_LAYER_Z};
   }
 
-  .pig-bank-fx-canvas {
+  .missile-strike-fx-canvas {
     position: absolute;
     inset: 0;
     width: 100%;

@@ -90,6 +90,11 @@ export {
   BUTTERFLY_REWARD,
   key11ButterflyAction,
 } from './key-11';
+export {
+  MissileStrikeLayer,
+  useMissileStrike,
+  key12MissileAction,
+} from './key-12';
 
 export { keyActions } from './keyActions';
 export { useKeyActions } from './useKeyActions';
@@ -107,6 +112,7 @@ export {
   KEY_9_TRUMP_SPAWN,
   KEY_P_PIG_BANK,
   KEY_O_BUTTERFLY,
+  KEY_I_MISSILE,
 } from './types';
 export type { KeyActionContext, KeyActionDefinition } from './types';
 export type { DiceLandPayload } from './key-6/types';

@@ -91,16 +91,37 @@ import {
   ButterflyLayer,
   useButterfly,
   BUTTERFLY_REWARD,
+  MissileStrikeLayer,
+  useMissileStrike,
   useKeyActions,
   type AttackAngle,
   type KeyActionContext,
 } from './actions';
 import {
-  CHEST_REWARD,
+  BOMB_PENALTY,
   type StickmanBombCanvasHandle,
   type StickmanBombCanvasProps,
 } from './types';
 import { EstateDisplay } from './estate';
+
+/**
+ * Game-screen shake while the key-P money downpour is on screen. Transform-only
+ * keyframes (GPU-composited, no layout) on a short loop.
+ */
+const moneyRainShakeStyles = `
+  .money-rain-shake {
+    animation: money-rain-shake 0.32s steps(2, end) infinite;
+    will-change: transform;
+  }
+  @keyframes money-rain-shake {
+    0%   { transform: translate3d(0, 0, 0); }
+    20%  { transform: translate3d(-7px, 4px, 0); }
+    40%  { transform: translate3d(6px, -5px, 0); }
+    60%  { transform: translate3d(-5px, -4px, 0); }
+    80%  { transform: translate3d(7px, 5px, 0); }
+    100% { transform: translate3d(0, 0, 0); }
+  }
+`;
 
 export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanBombCanvasProps>(
   (
@@ -132,6 +153,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       { id: number; angle: AttackAngle }[]
     >([]);
     const [explosionBurstId, setExplosionBurstId] = useState(0);
+    const [moneyRainShake, setMoneyRainShake] = useState(false);
     const explosionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const explosionBurstSeqRef = useRef(0);
     const counterRef = useRef<HTMLDivElement>(null);
@@ -275,6 +297,14 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetCycle: resetButterflyCycle,
     } = useButterfly(butterflyActive);
 
+    const missileActive = !freezeSway;
+    const {
+      activeMissiles,
+      triggerMissileStrike,
+      completeMissileStrike,
+      resetCycle: resetMissileCycle,
+    } = useMissileStrike(missileActive);
+
     const {
       activeEffects: activeHackerEffects,
       triggerHackerEffect,
@@ -361,15 +391,15 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     }, []);
 
     const triggerExplosion = useCallback(() => {
-      applyDelta(CHEST_REWARD, 10, 0.5, { source: 'key-1' });
+      applyDelta(-BOMB_PENALTY, 10, 0.5, { source: 'key-1' });
       const burstId = ++explosionBurstSeqRef.current;
       setExplosionBurstId(burstId);
-      if (!isMuted) audioManager.playBuildChime();
+      if (!isMuted) audioManager.playExplosion();
       clearExplosionTimer();
       explosionTimerRef.current = setTimeout(() => {
         setExplosionBurstId(0);
         explosionTimerRef.current = null;
-      }, 800);
+      }, 1000);
     }, [applyDelta, clearExplosionTimer, isMuted]);
 
     const startBombing = useCallback(() => {
@@ -467,6 +497,11 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       if (!isMuted) audioManager.playBuildChime();
     }, [applyDelta, isMuted]);
 
+    const triggerMissileImpact = useCallback(() => {
+      applyDelta(-BOW_PENALTY, 16, 0.55, { source: 'key-i' });
+      if (!isMuted) audioManager.playExplosion();
+    }, [applyDelta, isMuted]);
+
     const resetGame = useCallback(() => {
       clearExplosionTimer();
       setActiveAttacks([]);
@@ -487,6 +522,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetTrumpSpawnCycle();
       resetPigBankCycle();
       resetButterflyCycle();
+      resetMissileCycle();
       resetHackerEffectCycle();
       resetActionSpawnQueue();
       onGameReset();
@@ -500,6 +536,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetTrumpSpawnCycle,
       resetPigBankCycle,
       resetButterflyCycle,
+      resetMissileCycle,
       resetHackerEffectCycle,
       resetAvatarCoinCycle,
       resetPlinkoCycle,
@@ -654,6 +691,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         triggerTrumpSpawn: handleTrumpSpawn,
         triggerPigBank: handlePigBank,
         triggerButterfly: handleButterfly,
+        triggerMissileStrike,
         paused: freezeSway,
         hackerEffectRunning: activeHackerEffects.length > 0,
         plinkoRunning: activePlinkoRounds.length > 0,
@@ -671,6 +709,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         handleTrumpSpawn,
         handlePigBank,
         handleButterfly,
+        triggerMissileStrike,
         freezeSway,
         activeHackerEffects.length,
         activePlinkoRounds.length,
@@ -750,10 +789,13 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         ref={gameAreaRef}
         className={`absolute inset-0 w-full h-full bg-transparent font-sans cursor-none isolate ${
           isGunMode ? 'gun-scope-stage' : 'overflow-visible'
-        }${freezeSway ? ' game-paused' : ''}`}
+        }${freezeSway ? ' game-paused' : ''}${
+          moneyRainShake ? ' money-rain-shake' : ''
+        }`}
       >
         {isGunMode && <style>{scopeViewStyles}</style>}
         <style>{gamePausedStyles}</style>
+        <style>{moneyRainShakeStyles}</style>
 
         <div
           ref={cameraStageRef}
@@ -963,6 +1005,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         <PigBankLayer
           spawns={activePigBankSpawns}
           onReward={triggerPigBankReward}
+          onRainChange={setMoneyRainShake}
           onComplete={completePigBank}
         />
 
@@ -971,6 +1014,13 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           gameplayTargetRef={estateTargetRef}
           onReward={triggerButterflyReward}
           onComplete={completeButterfly}
+        />
+
+        <MissileStrikeLayer
+          missiles={activeMissiles}
+          gameplayTargetRef={estateTargetRef}
+          onEstateHit={triggerMissileImpact}
+          onComplete={completeMissileStrike}
         />
 
         <HackerEffectLayer

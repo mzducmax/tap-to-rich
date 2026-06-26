@@ -1,34 +1,21 @@
 /**
- * One hacker session — matrix rain, alert, estate zoom, panel drain.
+ * One hacker session — green matrix rain + money drain over the live game.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { memo, useLayoutEffect, useRef, useState } from 'react';
 import { audioManager } from '../../../../../utils/audio';
-import { sleepWallClock, waitForRefs } from '../../shared/animationUtils';
+import { waitForRefs } from '../../shared/animationUtils';
+import { resetTrumpCamera } from '../../key-9/logic/trumpCamera';
 import {
-  animateTrumpCamera,
-  resetTrumpCamera,
-} from '../../key-9/logic/trumpCamera';
-import {
-  HACKER_ALERT_MS,
   HACKER_ENTER_MS,
-  HACKER_ESTATE_HOLD_MS,
-  HACKER_ESTATE_ZOOM_IN,
-  HACKER_ESTATE_ZOOM_IN_MS,
-  HACKER_ESTATE_ZOOM_OUT_MS,
   HACKER_EXIT_MS,
-  HACKER_MATRIX_MS,
   HACKER_MAX_DURATION_MS,
   HACKER_PENALTY,
 } from '../config/hackerEffectConfig';
 import { hackerUrl } from '../config/hackerAssets';
 import { runHackerMoneyDrain } from '../logic/hackerDrain';
-import {
-  animateHackerPanelZoomIn,
-  animateHackerPanelZoomOut,
-  resetHackerPanelZoom,
-} from '../logic/hackerPanelCamera';
+import { resetHackerPanelZoom } from '../logic/hackerPanelCamera';
 import {
   animateHackerLayerTransition,
   resetHackerLayerTransition,
@@ -51,18 +38,6 @@ type HackerEffectInstanceProps = {
   onDrain: (amount: number) => void;
   onComplete: () => void;
 };
-
-function computeStageFocus(
-  target: HTMLElement,
-  cameraStage: HTMLElement,
-): { x: number; y: number } {
-  const cameraRect = cameraStage.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  return {
-    x: targetRect.left + targetRect.width * 0.5 - cameraRect.left,
-    y: targetRect.top + targetRect.height * 0.5 - cameraRect.top,
-  };
-}
 
 function HackerEffectInstanceInner({
   effectId,
@@ -144,17 +119,7 @@ function HackerEffectInstanceInner({
     async function runEffect() {
       armWatchdog();
       try {
-        const ready = await waitForRefs(
-          [
-            layerRef,
-            cameraStageRef,
-            clipRootRef,
-            estateTargetRef,
-            balancePanelRef,
-            balanceDockRef,
-          ],
-          60,
-        );
+        const ready = await waitForRefs([layerRef, balancePanelRef], 60);
         if (!ready) {
           finishEffect();
           return;
@@ -164,11 +129,7 @@ function HackerEffectInstanceInner({
         started = true;
 
         const layer = layerRef.current!;
-        const cameraStage = cameraStageRef.current!;
-        const clipRoot = clipRootRef.current!;
-        const estate = estateTargetRef.current!;
         const balancePanel = balancePanelRef.current!;
-        const balanceDock = balanceDockRef.current!;
 
         layer.classList.add('hacker-effect-layer--entering');
         startHackerMatrixLoop();
@@ -178,69 +139,23 @@ function HackerEffectInstanceInner({
         if (shouldAbort()) return;
 
         layer.classList.remove('hacker-effect-layer--entering');
-        layer.classList.add('hacker-effect-layer--active');
+        layer.classList.add(
+          'hacker-effect-layer--active',
+          'hacker-effect-layer--draining',
+        );
         balancePanel.classList.add('hacker-counter-hacked');
+        setAlertVisible(true);
 
-        const drainPromise = runHackerMoneyDrain(HACKER_PENALTY, (chunk) => {
+        // Drain money right over the live game while the rain runs.
+        await runHackerMoneyDrain(HACKER_PENALTY, (chunk) => {
           if (shouldAbort()) return;
           onDrainRef.current(chunk);
         });
-
-        await sleepWallClock(Math.floor(HACKER_MATRIX_MS * 0.55));
         if (shouldAbort()) return;
 
-        setAlertVisible(true);
-        await sleepWallClock(HACKER_ALERT_MS);
-        if (shouldAbort()) return;
-
-        layer.classList.add('hacker-effect-layer--draining');
-
-        const estateFocus = computeStageFocus(estate, cameraStage);
-        estate.classList.add('hacker-estate-reveal');
-
-        await animateTrumpCamera({
-          stageEl: cameraStage,
-          clipEl: clipRoot,
-          focusX: estateFocus.x,
-          focusY: estateFocus.y,
-          zoom: HACKER_ESTATE_ZOOM_IN,
-          durationMs: HACKER_ESTATE_ZOOM_IN_MS,
-          ease: 'inOut',
-        });
-        if (shouldAbort()) return;
-
-        await sleepWallClock(HACKER_ESTATE_HOLD_MS);
-        if (shouldAbort()) return;
-
-        await animateTrumpCamera({
-          stageEl: cameraStage,
-          clipEl: clipRoot,
-          focusX: estateFocus.x,
-          focusY: estateFocus.y,
-          zoom: 1,
-          durationMs: HACKER_ESTATE_ZOOM_OUT_MS,
-          ease: 'inOut',
-        });
-        if (shouldAbort()) return;
-
-        estate.classList.remove('hacker-estate-reveal');
-        resetTrumpCamera(cameraStage, clipRoot);
-
-        await animateHackerPanelZoomIn({
-          shellEl: balancePanel,
-          dockEl: balanceDock,
-        });
-        if (shouldAbort()) return;
-
-        await drainPromise;
-        if (shouldAbort()) return;
-
-        await animateHackerPanelZoomOut({
-          shellEl: balancePanel,
-          dockEl: balanceDock,
-        });
-        if (shouldAbort()) return;
-
+        // Drain done → tear down immediately.
+        setAlertVisible(false);
+        balancePanel.classList.remove('hacker-counter-hacked');
         layer.classList.remove('hacker-effect-layer--draining');
         layer.classList.add('hacker-effect-layer--exiting');
         await animateHackerLayerTransition(layer, 'out', HACKER_EXIT_MS);
@@ -281,6 +196,7 @@ function HackerEffectInstanceInner({
     <>
       <div className="hacker-effect-flash" aria-hidden />
       <div className="hacker-effect-scanlines" aria-hidden />
+      <div className="hacker-effect-glitch" aria-hidden />
       <div
         className={`hacker-effect-alert${alertVisible ? ' hacker-effect-alert--visible' : ''}`}
         role="alert"

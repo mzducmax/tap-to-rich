@@ -5,16 +5,15 @@
 
 import React from 'react';
 import { stickmanStyles } from './stickmanStyles';
-import { TreasureChest } from './TreasureChest';
 
 export type StickmanPose = 'idle' | 'run' | 'throw-windup' | 'throw-release' | 'drop' | 'toss-up';
 
 export function CurvyStickman({
   pose,
-  showHandChest,
+  showHandBomb,
 }: {
   pose: StickmanPose;
-  showHandChest: boolean;
+  showHandBomb: boolean;
 }) {
   const poseClass =
     pose === 'idle'
@@ -49,11 +48,7 @@ export function CurvyStickman({
           <div className="sb-limb sb-upper sb-arm-f">
             <div className="sb-limb sb-lower">
               <span className="sb-hand" />
-              {showHandChest && (
-                <span className="sb-hand-chest">
-                  <TreasureChest size="sm" />
-                </span>
-              )}
+              {showHandBomb && <span className="sb-hand-bomb">💣</span>}
             </div>
           </div>
           <div className="sb-limb sb-upper sb-leg-b">

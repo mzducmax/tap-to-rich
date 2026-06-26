@@ -1,12 +1,11 @@
 /**
- * Action sequence: 360° → estate edge → drop/toss gift box → roll → open reward (+$10).
+ * Action sequence: 360° → estate edge → drop/toss bomb → roll → explode (−$10).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { getAngleGeometry, type AttackAngle } from '../shared/attackGeometry';
 import { CurvyStickman, type StickmanPose } from './CurvyStickman';
-import { TreasureChest } from './TreasureChest';
 import {
   gentleDrop,
   gentleTossUp,
@@ -29,10 +28,10 @@ type BombSequenceProps = {
 export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }: BombSequenceProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickmanRef = useRef<HTMLDivElement>(null);
-  const chestRef = useRef<HTMLDivElement>(null);
+  const bombRef = useRef<HTMLDivElement>(null);
   const [pose, setPose] = useState<StickmanPose>('run');
-  const [showHandChest, setShowHandChest] = useState(false);
-  const [flyingChestVisible, setFlyingChestVisible] = useState(false);
+  const [showHandBomb, setShowHandBomb] = useState(false);
+  const [flyingBombVisible, setFlyingBombVisible] = useState(false);
   const onExplodeRef = useRef(onExplode);
   const onCompleteRef = useRef(onComplete);
   const sequenceIdRef = useRef(0);
@@ -45,7 +44,7 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
     let cancelled = false;
 
     async function attack() {
-      const ready = await waitForRefs([containerRef, stickmanRef, chestRef, gameplayTargetRef]);
+      const ready = await waitForRefs([containerRef, stickmanRef, bombRef, gameplayTargetRef]);
       if (!ready) {
         onCompleteRef.current();
         return;
@@ -53,7 +52,7 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
       if (cancelled || sequenceId !== sequenceIdRef.current) return;
 
       const man = stickmanRef.current!;
-      const chest = chestRef.current!;
+      const bomb = bombRef.current!;
       const container = containerRef.current!;
       const box = gameplayTargetRef.current!;
 
@@ -69,7 +68,7 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
       man.style.cssText = `position:absolute;left:${geo.start.x}px;top:${geo.start.y}px;bottom:auto;z-index:20;display:block;transform:scaleX(${geo.facingIn})`;
 
       setPose('run');
-      setShowHandChest(true);
+      setShowHandBomb(true);
       await move2d(man, geo.start, geo.end, geo.tossUp ? 640 : 580, 'easeInOut', {
         bob: 4,
         facing: geo.facingIn,
@@ -82,26 +81,27 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
       if (cancelled || sequenceId !== sequenceIdRef.current) return;
 
       const handEl =
-        man.querySelector('.sb-hand-chest') ??
+        man.querySelector('.sb-hand-bomb') ??
         man.querySelector('.sb-arm-f .sb-hand') ??
         man;
 
       const handRect = handEl.getBoundingClientRect();
 
-      const chestHalfW = 24;
-      const chestStartX = handRect.left - containerRect.left + handRect.width / 2 - chestHalfW;
-      const chestStartY = handRect.top - containerRect.top;
-      const chestLandX = cx - chestHalfW;
-      const groundY = by + bh - 8;
-      const chestLandY = geo.tossUp ? by + bh - 32 : by + bh * 0.55;
-      const rollStartX = chestLandX;
-      const rollEndX = chestLandX + geo.rollDir * 22;
+      const bombHalf = 22;
+      const bombStartX = handRect.left - containerRect.left + handRect.width / 2 - bombHalf;
+      const bombStartY = handRect.top - containerRect.top - 10;
+      const bombLandX = cx - bombHalf;
+      /** Landing + roll height on estate (fraction from top — smaller = higher). */
+      const bombLandY = geo.tossUp ? by + bh * 0.30 : by + bh * 0.34;
+      const groundY = by + bh * 0.36;
+      const rollStartX = bombLandX;
+      const rollEndX = bombLandX + geo.rollDir * 22;
 
-      setShowHandChest(false);
-      setFlyingChestVisible(true);
-      chest.style.display = 'block';
-      chest.style.left = `${chestStartX}px`;
-      chest.style.top = `${chestStartY}px`;
+      setShowHandBomb(false);
+      setFlyingBombVisible(true);
+      bomb.style.display = 'block';
+      bomb.style.left = `${bombStartX}px`;
+      bomb.style.top = `${bombStartY}px`;
 
       setPose('run');
       const exitPromise = move2d(man, geo.end, geo.exit, 460, 'easeIn', {
@@ -110,19 +110,19 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
         verticalRun: geo.verticalRun,
       });
 
-      const chestPromise = (async () => {
+      const bombPromise = (async () => {
         if (geo.tossUp) {
-          await gentleTossUp(chest, chestStartX, chestStartY, chestLandX, chestLandY, 400);
+          await gentleTossUp(bomb, bombStartX, bombStartY, bombLandX, bombLandY, 400);
         } else {
-          await gentleDrop(chest, chestStartX, chestStartY, chestLandX, chestLandY, 320);
+          await gentleDrop(bomb, bombStartX, bombStartY, bombLandX, bombLandY, 320);
         }
-        await rollOnGround(chest, rollStartX, rollEndX, groundY, 340);
+        await rollOnGround(bomb, rollStartX, rollEndX, groundY, 340);
       })();
 
       await exitPromise;
       if (cancelled || sequenceId !== sequenceIdRef.current) return;
 
-      await chestPromise;
+      await bombPromise;
       if (cancelled || sequenceId !== sequenceIdRef.current) return;
 
       await sleep(80);
@@ -130,8 +130,8 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
 
       onExplodeRef.current();
 
-      chest.style.display = 'none';
-      setFlyingChestVisible(false);
+      bomb.style.display = 'none';
+      setFlyingBombVisible(false);
       man.style.display = 'none';
 
       onCompleteRef.current();
@@ -147,15 +147,18 @@ export function BombSequence({ angle, gameplayTargetRef, onExplode, onComplete }
   return (
     <div ref={containerRef} className="absolute inset-0 pointer-events-none z-30 overflow-visible">
       <div ref={stickmanRef} className="absolute" style={{ display: 'none' }}>
-        <CurvyStickman pose={pose} showHandChest={showHandChest} />
+        <CurvyStickman pose={pose} showHandBomb={showHandBomb} />
       </div>
 
       <div
-        ref={chestRef}
-        className="absolute z-[25]"
-        style={{ display: flyingChestVisible ? 'block' : 'none' }}
+        ref={bombRef}
+        className="absolute text-5xl z-[25]"
+        style={{
+          display: flyingBombVisible ? 'block' : 'none',
+          filter: 'drop-shadow(2px 5px 8px rgba(0,0,0,0.3))',
+        }}
       >
-        <TreasureChest />
+        💣
       </div>
     </div>
   );

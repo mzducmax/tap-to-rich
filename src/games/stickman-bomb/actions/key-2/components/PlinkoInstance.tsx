@@ -49,6 +49,15 @@ function pegKey(row: number, col: number): string {
   return `${row}-${col}`;
 }
 
+const CONFETTI_COLORS = ['#fde047', '#fb923c', '#34d399', '#60a5fa', '#f472b6', '#ef4444'];
+const CONFETTI_PIECES = Array.from({ length: 28 }, (_, id) => ({
+  id,
+  left: Math.round((id * 37 + 11) % 100),
+  color: CONFETTI_COLORS[id % CONFETTI_COLORS.length],
+  delay: (id % 7) * 55,
+  duration: 900 + (id % 5) * 160,
+}));
+
 function PlinkoInstanceInner({
   roundId,
   layerRef,
@@ -293,6 +302,10 @@ function PlinkoInstanceInner({
     <div className="plinko-board-scaler">
       <div className={`plinko-play-area${exiting ? ' plinko-play-area--exiting' : ''}`}>
         <div ref={boardRef} className="plinko-board">
+          <div className="plinko-board__title" aria-hidden>
+            <span className="plinko-board__title-icon">🎱</span>
+            <span className="plinko-board__title-text">PLINKO</span>
+          </div>
           {phase === 'aim' && (
             <>
               <div
@@ -376,10 +389,33 @@ function PlinkoInstanceInner({
             🎱 +{formatScoreFloatAmount(landReward)}$
           </div>
         )}
+
+        {landReward != null && (
+          <div className="plinko-celebrate" aria-hidden>
+            <div className="plinko-celebrate__banner">🎉 CONGRATULATIONS! 🎉</div>
+            <div className="plinko-celebrate__confetti">
+              {CONFETTI_PIECES.map((piece) => (
+                <span
+                  key={piece.id}
+                  className="plinko-confetti"
+                  style={{
+                    left: `${piece.left}%`,
+                    background: piece.color,
+                    animationDelay: `${piece.delay}ms`,
+                    animationDuration: `${piece.duration}ms`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         </div>
 
         <aside className="plinko-stats" aria-label="Landing odds per slot">
-          <div className="plinko-stats__title">Odds</div>
+          <div className="plinko-stats__title">
+            <span className="plinko-stats__title-game">🎱 PLINKO</span>
+            <span className="plinko-stats__title-sub">Odds</span>
+          </div>
           <div className="plinko-stats__rows">
             {PLINKO_MULTIPLIERS.map((mult, index) => (
               <div key={`prob-${index}`} className={statsRowClass(index)}>
