@@ -3,10 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export { StickmanBombCanvas } from './StickmanBombCanvas';
+export {
+  StickmanBombCanvas,
+  HERD_AUTO_SPAWN_GAP_MS,
+} from './StickmanBombCanvas';
 export {
   BackgroundSettingsSection,
   GameBackgroundRoot,
+  getLevelTheme,
   useGameBackground,
   clampTargetScore,
   loadTargetScore,
@@ -28,6 +32,18 @@ export {
 } from './gameplay';
 export type { CounterDisplayStyle } from './gameplay';
 export {
+  loadAutoHerdSpawn,
+  saveAutoHerdSpawn,
+  clampHerdAutoSpawnGapSec,
+  loadHerdAutoSpawnGapSec,
+  saveHerdAutoSpawnGapSec,
+  MIN_HERD_AUTO_SPAWN_GAP_SEC,
+  MAX_HERD_AUTO_SPAWN_GAP_SEC,
+} from './gameplay';
+export {
+  AUTO_HAMMER_INTERVAL_MS,
+  loadAutoHammer,
+  saveAutoHammer,
   clampHammerEstateReward,
   formatWeaponSwitchKeyLabel,
   loadHammerEstateReward,
@@ -63,8 +79,7 @@ export {
   key2BowAction,
   key3AvatarStrikeAction,
   key4AvatarCoinAction,
-  key5DivineCrossbowAction,
-  key5AvatarBubbleAction,
+  key5MoneySpinnerAction,
   key6DiceRollAction,
   key7VerticalLightningAction,
   key8SoccerBallAction,
@@ -73,14 +88,19 @@ export {
   KEY_2_BOW,
   KEY_3_AVATAR_STRIKE,
   KEY_4_AVATAR_COIN,
-  KEY_5_AVATAR_BUBBLE,
+  KEY_5_MONEY_SPINNER,
   KEY_6_DICE_ROLL,
   KEY_7_VERTICAL_LIGHTNING,
   KEY_8_SOCCER_BALL,
   PLINKO_BET,
   SOCCER_BALL_PENALTY,
   AVATAR_COIN_REWARD,
+  FIXED_MONEY_ACTIONS,
+  getActionMoneyAmount,
+  useActionMoneySettings,
+  ActionMoneySettingsSection,
 } from './actions';
+export type { ActionMoneyKey, ActionMoneyOverrides } from './actions';
 export { EstateSettingsSection, scoreToEstateLevel, useEstateImageSettings } from './estate';
 export type { EstateImageOverrides, EstateLevel } from './estate';
 export { BOMB_PENALTY, MISS_PENALTY_BOXES } from './types';

@@ -4,7 +4,7 @@
  */
 
 export const TRUMP_SPAWN_REWARD = 10000;
-export const TRUMP_REWARD_LABEL = `+$${TRUMP_SPAWN_REWARD.toLocaleString('en-US')}`;
+export const TRUMP_REWARD_LABEL = `−$${TRUMP_SPAWN_REWARD.toLocaleString('en-US')}`;
 export const TRUMP_SPAWN_COOLDOWN_MS = 2800;
 export const TRUMP_SPAWN_MAX_CONCURRENT = 1;
 

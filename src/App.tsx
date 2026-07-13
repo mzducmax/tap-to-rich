@@ -5,10 +5,10 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Volume2, 
-  VolumeX, 
-  RotateCcw, 
+import {
+  Volume2,
+  VolumeX,
+  RotateCcw,
   Settings,
   WifiOff,
 } from 'lucide-react';
@@ -32,6 +32,8 @@ import {
   GameBackgroundRoot,
   useGameBackground,
   useEstateImageSettings,
+  ActionMoneySettingsSection,
+  useActionMoneySettings,
   GameplayControlsSection,
   GameMarketPanel,
   scoreToEstateLevel,
@@ -41,6 +43,16 @@ import {
   clampHammerEstateReward,
   loadHammerEstateReward,
   saveHammerEstateReward,
+  loadAutoHammer,
+  saveAutoHammer,
+  AUTO_HAMMER_INTERVAL_MS,
+  loadAutoHerdSpawn,
+  saveAutoHerdSpawn,
+  clampHerdAutoSpawnGapSec,
+  loadHerdAutoSpawnGapSec,
+  saveHerdAutoSpawnGapSec,
+  MIN_HERD_AUTO_SPAWN_GAP_SEC,
+  MAX_HERD_AUTO_SPAWN_GAP_SEC,
   MIN_HAMMER_ESTATE_REWARD,
   MAX_HAMMER_ESTATE_REWARD,
   hasReachedWinTarget,
@@ -56,7 +68,15 @@ import {
   type MarketGameId,
 } from './games/stickman-bomb';
 import TargetGoalDock from './components/TargetGoalDock';
+import WinCounterBadge from './components/WinCounterBadge';
+import LevelUpTransition from './components/LevelUpTransition';
 import { useLiveNetworking, type LoginRequest } from './hooks/useLiveNetworking';
+import GifterFloatLayer, {
+  type GifterFloatLayerHandle,
+} from './components/GifterFloatLayer';
+import RecentGiftersPanel, {
+  type RecentGiftersPanelHandle,
+} from './components/RecentGiftersPanel';
 import GameClient from './networking/GameClient';
 import type { GiftBoxEffect } from './networking/giftBoxRules';
 import type { SettingsActionResult } from './networking/gameActionExecutor';
@@ -64,10 +84,10 @@ import type { MatchRankPlayer } from './networking/rankGameApi';
 import { pushMatchToGlobalRank } from './services/globalLeaderboard';
 import { parseWinProgress } from './networking/winSettings';
 import { GameStats } from './types';
-import { audioManager } from './utils/audio';
+import { audioManager, type HammerCoinSound } from './utils/audio';
 
-/** Temporarily skip login — set to false to re-enable. */
-const SKIP_LOGIN = true;
+/** Require login before entering the game. */
+const SKIP_LOGIN = false;
 
 type ViewerGiftStats = {
   id: string;
@@ -79,6 +99,8 @@ type ViewerGiftStats = {
 
 export default function App() {
   const canvasRef = useRef<StickmanBombCanvasHandle | null>(null);
+  const gifterFloatRef = useRef<GifterFloatLayerHandle | null>(null);
+  const recentGiftersRef = useRef<RecentGiftersPanelHandle | null>(null);
   const pendingMarketGameRef = useRef<MarketGameId | null>(null);
   const balancePanelRef = useRef<HTMLDivElement | null>(null);
   const balanceDockRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +117,8 @@ export default function App() {
 
   // Target goal — supports negative integers (score moves 0 → target)
   const [targetScore, setTargetScore] = useState(() => loadTargetScore());
+  // Draft value edited in the settings modal; only applied to the live game on confirm
+  const [targetScoreDraft, setTargetScoreDraft] = useState(targetScore);
 
   // Sound active state
   const [volume, setVolume] = useState(() => {
@@ -104,11 +128,24 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(() => {
     return localStorage.getItem('stack_muted') === 'true';
   });
+  // Which clip plays for hammer hits / coin credit: the default "ADD" chime or the "tick" clip
+  const [hammerCoinSound, setHammerCoinSoundState] = useState<HammerCoinSound>(() => {
+    return localStorage.getItem('stack_hammer_coin_sound') === 'tick' ? 'tick' : 'default';
+  });
 
   // Modal display overrides
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Reset the draft target to the live value whenever the settings modal opens
+  useEffect(() => {
+    if (showSettingsModal) {
+      setTargetScoreDraft(targetScore);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSettingsModal]);
   const [showMarketPanel, setShowMarketPanel] = useState(false);
   const [hasBorrowed, setHasBorrowed] = useState(false);
+
   const [previewEstateLevel, setPreviewEstateLevel] = useState<EstateLevel | null>(null);
   const {
     estateImageOverrides,
@@ -116,10 +153,28 @@ export default function App() {
     resetEstateLevelImage,
     resetAllEstateLevelImages,
   } = useEstateImageSettings();
+  const {
+    actionMoneyOverrides,
+    setActionMoney,
+    resetActionMoney,
+    resetAllActionMoney,
+  } = useActionMoneySettings();
   const [showVictoryModal, setShowVictoryModal] = useState(false);
   const [showDefeatModal, setShowDefeatModal] = useState(false);
   const [victoryCountdown, setVictoryCountdown] = useState<number | null>(null);
   const [winProgress, setWinProgress] = useState({ current: 0, total: 0 });
+  // Tổng trận thắng tích luỹ (lifetime) — lưu localStorage, tự tăng khi thắng.
+  const [matchesWon, setMatchesWon] = useState(() => {
+    const stored = Math.floor(Number(localStorage.getItem('stack_matches_won')));
+    return Number.isFinite(stored) ? stored : 0;
+  });
+  const bumpMatchesWon = useCallback((delta: number) => {
+    setMatchesWon((prev) => {
+      const next = prev + delta;
+      localStorage.setItem('stack_matches_won', String(next));
+      return next;
+    });
+  }, []);
   const [showWinPanel, setShowWinPanel] = useState(() => {
     return localStorage.getItem('stack_show_win_panel') !== 'false';
   });
@@ -132,13 +187,17 @@ export default function App() {
   const [weaponMode, setWeaponMode] = useState<WeaponMode>(() => loadWeaponMode());
   const [weaponSwitchKey, setWeaponSwitchKey] = useState(() => loadWeaponSwitchKey());
   const [hammerEstateReward, setHammerEstateReward] = useState(() => loadHammerEstateReward());
+  const [autoHammer, setAutoHammer] = useState(() => loadAutoHammer());
+  const [autoHerdSpawn, setAutoHerdSpawn] = useState(() => loadAutoHerdSpawn());
+  const [herdAutoSpawnGapSec, setHerdAutoSpawnGapSec] = useState(
+    () => loadHerdAutoSpawnGapSec(),
+  );
 
   const gamePaused =
     showSettingsModal ||
     showMarketPanel ||
-    victoryCountdown !== null ||
     showDefeatModal ||
-    hasReachedWinTarget(stats.score, targetScore) ||
+    showVictoryModal ||
     hasReachedLoseTarget(stats.score, targetScore);
 
   const gameBackground = useGameBackground({
@@ -149,7 +208,7 @@ export default function App() {
 
   const activeEstateLevel = scoreToEstateLevel(stats.score, targetScore);
 
-  const canShowWinPanel = showWinPanel && winProgress.total > 0;
+  const canShowWinPanel = showWinPanel;
   const [showNotification, setShowNotification] = useState<string | null>(null);
   type LiveActionBanner =
     | { kind: 'reset'; viewerName: string }
@@ -165,9 +224,15 @@ export default function App() {
 
     setVictoryCountdown(null);
     setShowDefeatModal(true);
+    canvasRef.current?.clearActiveEffects();
+    setWinProgress((prev) => ({
+      ...prev,
+      current: prev.current - 1,
+    }));
+    bumpMatchesWon(-1);
     audioManager.playLose();
     triggerFloatNotify(`💀 HIT ${formatCounterLabel(getLoseTargetScore(targetScore))}! GAME OVER!`);
-  }, [stats.score, targetScore, showDefeatModal, showVictoryModal]);
+  }, [stats.score, targetScore, showDefeatModal, showVictoryModal, bumpMatchesWon]);
 
   // Victory — positive target reached, 10 second survival countdown
   useEffect(() => {
@@ -200,6 +265,7 @@ export default function App() {
         ...prev,
         current: prev.current + 1,
       }));
+      bumpMatchesWon(1);
       audioManager.playWin();
       void pushSessionToGlobalRank(targetScore);
       triggerFloatNotify(`🏆 VICTORY! ACCUMULATED ${formatCounterLabel(targetScore)}!`);
@@ -231,6 +297,13 @@ export default function App() {
       setIsMuted(false);
       localStorage.setItem('stack_muted', 'false');
     }
+  };
+
+  const handleHammerCoinSoundChange = (sound: HammerCoinSound) => {
+    setHammerCoinSoundState(sound);
+    audioManager.setHammerCoinSound(sound);
+    localStorage.setItem('stack_hammer_coin_sound', sound);
+    audioManager.playAddCoin();
   };
 
   const handleCounterDisplayStyleChange = (style: CounterDisplayStyle) => {
@@ -347,6 +420,7 @@ export default function App() {
 
   useEffect(() => {
     audioManager.setVolume(volume);
+    audioManager.setHammerCoinSound(hammerCoinSound);
     if (isMuted && !audioManager.getMuteStatus()) {
       audioManager.toggleMute();
     } else if (!isMuted && audioManager.getMuteStatus()) {
@@ -357,35 +431,35 @@ export default function App() {
 
   const applyGiftBoxEffect = useCallback(
     (effect: GiftBoxEffect, options?: { silentToast?: boolean }) => {
-    if (!canvasRef.current) return;
+      if (!canvasRef.current) return;
 
-    const boxLabel = effect.boxes === 1 ? 'box' : 'boxes';
-    if (effect.direction === 'add') {
-      canvasRef.current.autoBuildBoxes(effect.boxes);
-      if (!options?.silentToast) {
-        triggerFloatNotify(`🎁 ${effect.viewerName} +${effect.boxes} ${boxLabel}`);
+      const boxLabel = effect.boxes === 1 ? 'box' : 'boxes';
+      if (effect.direction === 'add') {
+        canvasRef.current.autoBuildBoxes(effect.boxes);
+        if (!options?.silentToast) {
+          triggerFloatNotify(`🎁 ${effect.viewerName} +${effect.boxes} ${boxLabel}`);
+        }
+      } else {
+        canvasRef.current.destroyTopBoxes(effect.boxes);
+        if (!options?.silentToast) {
+          triggerFloatNotify(`💥 ${effect.viewerName} −${effect.boxes} ${boxLabel}`);
+        }
       }
-    } else {
-      canvasRef.current.destroyTopBoxes(effect.boxes);
-      if (!options?.silentToast) {
-        triggerFloatNotify(`💥 ${effect.viewerName} −${effect.boxes} ${boxLabel}`);
-      }
-    }
 
-    if (effect.viewerId && !effect.viewerId.includes('test-viewer') && (effect.coins ?? 0) > 0) {
-      const map = viewerStatsRef.current;
-      const existing = map.get(effect.viewerId);
-      const next: ViewerGiftStats = {
-        id: effect.viewerId,
-        name: effect.viewerName,
-        avatar: existing?.avatar ?? '',
-        matchCoins: (existing?.matchCoins ?? 0) + (effect.coins ?? 0),
-        peakScore: existing?.peakScore ?? 0,
-      };
-      map.set(effect.viewerId, next);
-    }
-  },
-  []);
+      if (effect.viewerId && !effect.viewerId.includes('test-viewer') && (effect.coins ?? 0) > 0) {
+        const map = viewerStatsRef.current;
+        const existing = map.get(effect.viewerId);
+        const next: ViewerGiftStats = {
+          id: effect.viewerId,
+          name: effect.viewerName,
+          avatar: existing?.avatar ?? '',
+          matchCoins: (existing?.matchCoins ?? 0) + (effect.coins ?? 0),
+          peakScore: existing?.peakScore ?? 0,
+        };
+        map.set(effect.viewerId, next);
+      }
+    },
+    []);
 
   const SOCIAL_ACTION_SOURCES = new Set([
     'Like',
@@ -449,18 +523,39 @@ export default function App() {
       }
       if (action.type === 'winDelta') {
         console.log('[Action:Win] applySettingsAction', action);
+        // actionId 14 ("- Win") -> negative delta; actionId 15 ("+ Win") -> positive delta.
+        if (action.delta < 0) audioManager.playTrumpetSad();
+        else if (action.delta > 0) audioManager.playTing();
         setWinProgress((prev) => ({
           ...prev,
           current: prev.current + action.delta,
         }));
+        bumpMatchesWon(action.delta);
         showWinDeltaBanner(action.viewerName, action.delta);
         const sign = action.delta >= 0 ? '+' : '−';
         triggerFloatNotify(
           `🏆 ${action.viewerName} ${sign}${Math.abs(action.delta)} win`,
         );
+        return;
+      }
+      if (action.type === 'effect') {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const repeat = Math.max(1, Math.floor(action.repeat) || 1);
+        for (let i = 0; i < repeat; i += 1) {
+          canvas.triggerActionEffect(action.effectId);
+        }
       }
     },
-    [applyGiftBoxEffect, handleLiveGameReset],
+    [applyGiftBoxEffect, handleLiveGameReset, bumpMatchesWon],
+  );
+
+  const handleGifterFloat = useCallback(
+    (info: { name: string; avatar: string; id: string | null }) => {
+      gifterFloatRef.current?.push(info);
+      recentGiftersRef.current?.push(info);
+    },
+    [],
   );
 
   const {
@@ -473,7 +568,12 @@ export default function App() {
     gameSettings,
     getRankAuth,
     refreshRankAuth,
-  } = useLiveNetworking(loginRequest, applyGiftBoxEffect, applySettingsAction);
+  } = useLiveNetworking(
+    loginRequest,
+    applyGiftBoxEffect,
+    applySettingsAction,
+    handleGifterFloat,
+  );
 
   useEffect(() => {
     if (!gameSettings?.settings) return;
@@ -492,16 +592,6 @@ export default function App() {
         target instanceof HTMLTextAreaElement ||
         target instanceof HTMLSelectElement
       ) {
-        return;
-      }
-
-      if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault();
-        setShowMarketPanel((prev) => {
-          const next = !prev;
-          if (next) audioManager.playPop();
-          return next;
-        });
         return;
       }
 
@@ -531,10 +621,30 @@ export default function App() {
     }
   }, []);
 
+  // Coalesce stats commits: every hammer hit emits stats, and committing
+  // state here re-renders the whole App per hit. Track peaks immediately
+  // (refs, cheap) but publish to React state at most ~10×/s (trailing).
+  const pendingStatsRef = useRef<GameStats | null>(null);
+  const statsCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleStatsChange = useCallback((newStats: GameStats) => {
-    setStats(newStats);
     syncPeakScoresFromStats(newStats.score);
+    pendingStatsRef.current = newStats;
+    if (statsCommitTimerRef.current !== null) return;
+    statsCommitTimerRef.current = setTimeout(() => {
+      statsCommitTimerRef.current = null;
+      if (pendingStatsRef.current) {
+        setStats(pendingStatsRef.current);
+        pendingStatsRef.current = null;
+      }
+    }, 100);
   }, [syncPeakScoresFromStats]);
+
+  useEffect(() => () => {
+    if (statsCommitTimerRef.current !== null) {
+      clearTimeout(statsCommitTimerRef.current);
+    }
+  }, []);
 
   const pushSessionToGlobalRank = async (finalScore: number) => {
     const auth = getRankAuth();
@@ -606,6 +716,15 @@ export default function App() {
         grassTufts={gameBackground.grassTufts}
       />
 
+
+      {/* Win counter — prominent badge at top of screen */}
+      {canShowWinPanel && (
+        <WinCounterBadge
+          current={winProgress.total > 0 ? winProgress.current : matchesWon}
+          total={winProgress.total}
+        />
+      )}
+
       {/* Target + goal — compact unified dock */}
       <div
         ref={balanceDockRef}
@@ -616,9 +735,6 @@ export default function App() {
           shellRef={balancePanelRef}
           score={stats.score}
           targetScore={targetScore}
-          winCurrent={winProgress.current}
-          winTotal={winProgress.total}
-          showWin={canShowWinPanel}
           weaponMode={weaponMode}
           hasBorrowed={hasBorrowed}
         />
@@ -626,11 +742,10 @@ export default function App() {
 
       {!SKIP_LOGIN && connectionStatus !== 'connected' && (
         <div
-          className={`absolute top-4 left-4 z-10 select-none flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black tracking-wider shadow-lg ${
-            connectionStatus === 'error'
+          className={`absolute top-4 left-4 z-10 select-none flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-black tracking-wider shadow-lg ${connectionStatus === 'error'
               ? 'bg-red-500/20 border-red-400/40 text-red-200'
               : 'bg-white/10 border-white/20 text-white/70'
-          }`}
+            }`}
           title={loggedInEmail ? `${connectionMessage} · ${loggedInEmail}` : connectionMessage}
         >
           <WifiOff size={12} />
@@ -659,19 +774,17 @@ export default function App() {
           <div className="relative flex items-center justify-center w-28 h-28 md:w-32 md:h-32">
             <div className="absolute inset-0 rounded-full bg-white/15 backdrop-blur-md border-2 border-white/30 shadow-[0_0_40px_rgba(255,255,255,0.15)]" />
             <div
-              className={`absolute inset-1 rounded-full border-[3px] transition-colors duration-300 ${
-                victoryCountdown <= 3
+              className={`absolute inset-1 rounded-full border-[3px] transition-colors duration-300 ${victoryCountdown <= 3
                   ? 'border-rose-400/80 shadow-[0_0_24px_rgba(244,63,94,0.45)] animate-pulse'
                   : 'border-amber-300/60 shadow-[0_0_20px_rgba(252,211,77,0.25)]'
-              }`}
+                }`}
             />
             <span
               key={victoryCountdown}
-              className={`relative font-black tabular-nums leading-none tracking-tighter drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] animate-count-pop ${
-                victoryCountdown <= 3
+              className={`relative font-black tabular-nums leading-none tracking-tighter drop-shadow-[0_4px_12px_rgba(0,0,0,0.45)] animate-count-pop ${victoryCountdown <= 3
                   ? 'text-6xl md:text-7xl text-rose-300'
                   : 'text-6xl md:text-7xl text-white'
-              }`}
+                }`}
             >
               {victoryCountdown}
             </span>
@@ -715,16 +828,14 @@ export default function App() {
                 return (
                   <>
                     <div
-                      className={`absolute inset-0 ${
-                        isPlus ? 'bg-amber-950/25' : 'bg-red-950/25'
-                      }`}
+                      className={`absolute inset-0 ${isPlus ? 'bg-amber-950/25' : 'bg-red-950/25'
+                        }`}
                     />
                     <p
-                      className={`relative text-6xl sm:text-7xl md:text-8xl font-black uppercase tracking-[0.15em] animate-pulse ${
-                        isPlus
+                      className={`relative text-6xl sm:text-7xl md:text-8xl font-black uppercase tracking-[0.15em] animate-pulse ${isPlus
                           ? 'text-amber-300 drop-shadow-[0_0_40px_rgba(251,191,36,0.85)]'
                           : 'text-red-500 drop-shadow-[0_0_40px_rgba(239,68,68,0.85)]'
-                      }`}
+                        }`}
                       style={{
                         textShadow: isPlus
                           ? '0 4px 0 #78350f, 0 0 60px rgba(251,191,36,0.6)'
@@ -735,9 +846,8 @@ export default function App() {
                       {amount} WIN
                     </p>
                     <p
-                      className={`relative mt-3 text-sm md:text-base font-bold uppercase tracking-widest ${
-                        isPlus ? 'text-amber-200/90' : 'text-red-200/90'
-                      }`}
+                      className={`relative mt-3 text-sm md:text-base font-bold uppercase tracking-widest ${isPlus ? 'text-amber-200/90' : 'text-red-200/90'
+                        }`}
                     >
                       {liveActionBanner.viewerName}
                     </p>
@@ -749,6 +859,10 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Người tặng quà — avatar + tên bay lơ lửng 2s (GPU-composited) */}
+      <GifterFloatLayer ref={gifterFloatRef} />
+      <RecentGiftersPanel ref={recentGiftersRef} />
+
       {/* FULL-SCREEN GAME BACKGROUND VIEWPORT (GPU TRANSLATIONS ENABLED) */}
       <div className="absolute inset-0 w-full h-full z-0 overflow-hidden" style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', willChange: 'transform' }}>
         <StickmanBombCanvas
@@ -758,6 +872,7 @@ export default function App() {
           targetScore={targetScore}
           previewEstateLevel={previewEstateLevel}
           estateImageOverrides={estateImageOverrides}
+          actionMoneyOverrides={actionMoneyOverrides}
           freezeSway={gamePaused}
           counterDisplayStyle={counterDisplayStyle}
           showCounter={showCounter}
@@ -765,6 +880,9 @@ export default function App() {
           weaponSwitchKey={weaponSwitchKey}
           onWeaponModeChange={handleWeaponModeChange}
           hammerEstateReward={hammerEstateReward}
+          autoHammer={autoHammer}
+          autoHerdSpawn={autoHerdSpawn}
+          herdAutoSpawnGapMs={herdAutoSpawnGapSec * 1000}
           onStatsChange={handleStatsChange}
           onGameOver={(score) => {
             setVictoryCountdown(null);
@@ -798,11 +916,11 @@ export default function App() {
       <AnimatePresence>
         {showSettingsModal && (
           <div className="fixed inset-0 w-screen h-screen bg-indigo-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.92, opacity: 0 }}
-              className="bg-white border-4 border-indigo-950 p-6 rounded-3xl max-w-sm w-full maxHeight-scroll overflow-y-auto shadow-2xl text-indigo-950 relative max-h-[90vh]"
+              className="bg-white border-4 border-indigo-950 p-6 rounded-3xl max-w-2xl w-full maxHeight-scroll overflow-y-auto shadow-2xl text-indigo-950 relative max-h-[90vh]"
             >
               <h2 className="text-xl font-black text-indigo-950 uppercase tracking-tight flex items-center gap-2 mb-4">
                 <span>⚙️</span> GAME SETTINGS
@@ -818,15 +936,14 @@ export default function App() {
                 </div>
                 <div className="bg-blue-50/50 p-2 rounded-xl border border-indigo-900/10 flex items-center gap-3 shadow-inner">
                   <span className="text-lg">🎯</span>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     min={MIN_TARGET_SCORE}
                     max={MAX_TARGET_SCORE}
-                    value={targetScore} 
+                    value={targetScoreDraft}
                     onChange={(e) => {
                       const val = clampTargetScore(parseInt(e.target.value, 10) || 0);
-                      setTargetScore(val);
-                      saveTargetScore(val);
+                      setTargetScoreDraft(val);
                     }}
                     className="w-full bg-transparent border-0 outline-none font-black text-base text-indigo-950 focus:outline-none"
                     placeholder="e.g., 100 or -500"
@@ -835,7 +952,7 @@ export default function App() {
               </div>
 
               <BackgroundSettingsSection
-                targetScore={targetScore}
+                targetScore={targetScoreDraft}
                 displayMode={gameBackground.displayMode}
                 atmosphereTheme={gameBackground.atmosphereTheme}
                 activeBackgroundLevel={gameBackground.activeBackgroundLevel}
@@ -850,7 +967,7 @@ export default function App() {
               />
 
               <EstateSettingsSection
-                targetScore={targetScore}
+                targetScore={targetScoreDraft}
                 activeEstateLevel={activeEstateLevel}
                 previewEstateLevel={previewEstateLevel}
                 estateImageOverrides={estateImageOverrides}
@@ -873,6 +990,21 @@ export default function App() {
                 }}
               />
 
+              <ActionMoneySettingsSection
+                actionMoneyOverrides={actionMoneyOverrides}
+                onActionMoneyChange={(actionId, amount) => {
+                  setActionMoney(actionId, amount);
+                }}
+                onActionMoneyReset={(actionId) => {
+                  resetActionMoney(actionId);
+                  audioManager.playPop();
+                }}
+                onResetAllActionMoney={() => {
+                  resetAllActionMoney();
+                  audioManager.playPop();
+                }}
+              />
+
               {/* Win counter toggle */}
               <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
                 <div className="flex flex-col gap-0.5">
@@ -880,11 +1012,11 @@ export default function App() {
                     Show Win Counter
                   </span>
                   <span className="text-[10px] font-bold text-indigo-900/50">
-                    {canShowWinPanel
-                      ? `Panel: TARGET | WIN (${winProgress.current}/${winProgress.total})`
-                      : showWinPanel && winProgress.total <= 0
-                      ? 'No win data from live settings yet'
-                      : 'Panel: TARGET only (centered)'}
+                    {!showWinPanel
+                      ? 'Panel: TARGET only (centered)'
+                      : winProgress.total > 0
+                        ? `Panel: TARGET | WIN (${winProgress.current}/${winProgress.total})`
+                        : `Panel: TARGET | WIN (${matchesWon} matches won)`}
                   </span>
                 </div>
                 <button
@@ -897,18 +1029,44 @@ export default function App() {
                     localStorage.setItem('stack_show_win_panel', String(next));
                     audioManager.playPop();
                   }}
-                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${
-                    showWinPanel
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${showWinPanel
                       ? 'border-amber-500 bg-amber-400'
                       : 'border-slate-300 bg-slate-200'
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
-                      showWinPanel ? 'translate-x-5' : 'translate-x-0'
-                    }`}
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${showWinPanel ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                   />
                 </button>
+              </div>
+
+              {/* Tổng trận thắng tích luỹ */}
+              <div className="mb-4 flex items-center justify-between gap-3 bg-emerald-50/70 p-3 rounded-xl border border-emerald-200/80">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-black uppercase text-emerald-950/70 tracking-wider">
+                    Matches Won
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-900/50">
+                    Total matches won (auto-increments on win)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-2xl font-black tabular-nums text-emerald-700 min-w-[2ch] text-right">
+                    {matchesWon}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMatchesWon(0);
+                      localStorage.setItem('stack_matches_won', '0');
+                      audioManager.playPop();
+                    }}
+                    className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-900 bg-emerald-100/80 hover:bg-emerald-200/80 border border-emerald-300 rounded-lg px-2.5 py-1 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
 
               {/* Volume Slider Block */}
@@ -921,28 +1079,60 @@ export default function App() {
                   <button type="button" onClick={toggleMute} className="text-indigo-900 hover:text-indigo-950 transition-colors">
                     {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                   </button>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.01" 
-                    value={volume} 
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volume}
                     onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-blue-105 rounded-lg appearance-none cursor-pointer accent-indigo-900" 
+                    className="w-full h-2 bg-blue-105 rounded-lg appearance-none cursor-pointer accent-indigo-900"
                   />
                 </div>
+              </div>
+
+              {/* Hammer hit / coin credit sound choice */}
+              <div className="mb-4 flex flex-col gap-1.5">
+                <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">Hammer Hit Sound</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleHammerCoinSoundChange('default')}
+                    className={`text-xs font-black uppercase tracking-wider rounded-xl px-3 py-2 border transition-colors ${
+                      hammerCoinSound === 'default'
+                        ? 'bg-indigo-900 text-white border-indigo-950'
+                        : 'bg-blue-50/50 text-indigo-900 border-indigo-900/10 hover:bg-blue-100/60'
+                    }`}
+                  >
+                    Default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleHammerCoinSoundChange('tick')}
+                    className={`text-xs font-black uppercase tracking-wider rounded-xl px-3 py-2 border transition-colors ${
+                      hammerCoinSound === 'tick'
+                        ? 'bg-indigo-900 text-white border-indigo-950'
+                        : 'bg-blue-50/50 text-indigo-900 border-indigo-900/10 hover:bg-blue-100/60'
+                    }`}
+                  >
+                    Tick
+                  </button>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-900/50">
+                  Sound played when the hammer hits and adds coins
+                </span>
               </div>
 
               {/* Score counter visibility */}
               <div className="mb-4 flex items-center justify-between gap-3 bg-slate-50/80 p-3 rounded-xl border border-indigo-900/10">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
-                    Hiển thị số đếm
+                    Show Counter
                   </span>
                   <span className="text-[10px] font-bold text-indigo-900/50">
                     {showCounter
-                      ? 'Bật — hiện số điểm bên trái màn hình'
-                      : 'Tắt — chỉ hiện tài sản (estate) ở giữa'}
+                      ? 'On — score counter shown on the left side'
+                      : 'Off — only the estate is shown in the center'}
                   </span>
                 </div>
                 <button
@@ -950,16 +1140,14 @@ export default function App() {
                   role="switch"
                   aria-checked={showCounter}
                   onClick={() => handleShowCounterChange(!showCounter)}
-                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${
-                    showCounter
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${showCounter
                       ? 'border-indigo-500 bg-indigo-400'
                       : 'border-slate-300 bg-slate-200'
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${
-                      showCounter ? 'translate-x-5' : 'translate-x-0'
-                    }`}
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${showCounter ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                   />
                 </button>
               </div>
@@ -976,11 +1164,10 @@ export default function App() {
                       type="button"
                       disabled={!showCounter}
                       onClick={() => handleCounterDisplayStyleChange(option.id)}
-                      className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                        counterDisplayStyle === option.id
+                      className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${counterDisplayStyle === option.id
                           ? 'bg-indigo-100/80 border-indigo-900 scale-[1.02]'
                           : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
+                        }`}
                     >
                       <span className="text-base leading-none">
                         {option.id === 'stick'
@@ -1002,7 +1189,7 @@ export default function App() {
               <div className="mb-4 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
-                    Điểm mỗi cú búa ($)
+                    Points per Hammer Hit ($)
                   </span>
                   <span className="text-[10px] font-mono font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-md">
                     {MIN_HAMMER_ESTATE_REWARD.toLocaleString()} … {MAX_HAMMER_ESTATE_REWARD.toLocaleString()}
@@ -1025,7 +1212,101 @@ export default function App() {
                   />
                 </div>
                 <span className="text-[10px] font-bold text-indigo-900/50">
-                  Số cộng mỗi lần búa đập trúng nhà (estate)
+                  Amount added each time the hammer hits the estate
+                </span>
+              </div>
+
+              {/* Auto-hammer toggle — tự động gõ vào nhà để kiếm tiền */}
+              <div className="mb-4 flex items-center justify-between gap-3 bg-orange-50/70 p-3 rounded-xl border border-orange-200/80">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
+                    Auto-Hammer
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-900/50">
+                    Automatically hammer the estate to earn money (every {(AUTO_HAMMER_INTERVAL_MS / 1000).toFixed(1)}s)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoHammer}
+                  onClick={() => {
+                    const next = !autoHammer;
+                    setAutoHammer(next);
+                    saveAutoHammer(next);
+                    audioManager.playPop();
+                  }}
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${autoHammer
+                      ? 'border-orange-500 bg-orange-400'
+                      : 'border-slate-300 bg-slate-200'
+                    }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${autoHammer ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                  />
+                </button>
+              </div>
+
+              {/* Auto herd toggle — spawns the sheep herd, then the mouse swarm 10s later */}
+              <div className="mb-4 flex items-center justify-between gap-3 bg-orange-50/70 p-3 rounded-xl border border-orange-200/80">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
+                    Auto Sheep / Mouse
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-900/50">
+                    Auto-spawn the sheep herd and mouse swarm one after another, taking turns with a {herdAutoSpawnGapSec}s gap between waves — never both at once
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoHerdSpawn}
+                  onClick={() => {
+                    const next = !autoHerdSpawn;
+                    setAutoHerdSpawn(next);
+                    saveAutoHerdSpawn(next);
+                    audioManager.playPop();
+                  }}
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 transition-colors duration-200 ${autoHerdSpawn
+                      ? 'border-orange-500 bg-orange-400'
+                      : 'border-slate-300 bg-slate-200'
+                    }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${autoHerdSpawn ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                  />
+                </button>
+              </div>
+
+              {/* Auto Sheep / Mouse timing — giãn cách giữa các đàn nối tiếp */}
+              <div className={`mb-4 flex flex-col gap-2 transition-opacity ${autoHerdSpawn ? '' : 'opacity-50'}`}>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-black uppercase text-indigo-950/70 tracking-wider">
+                    Gap Between Waves (s)
+                  </span>
+                  <div className="bg-orange-50/60 p-2 rounded-xl border border-orange-200/70 flex items-center gap-2 shadow-inner">
+                    <span className="text-base">🐑→🐭</span>
+                    <input
+                      type="number"
+                      min={MIN_HERD_AUTO_SPAWN_GAP_SEC}
+                      max={MAX_HERD_AUTO_SPAWN_GAP_SEC}
+                      value={herdAutoSpawnGapSec}
+                      onChange={(e) => {
+                        const val = clampHerdAutoSpawnGapSec(parseInt(e.target.value, 10) || 0);
+                        setHerdAutoSpawnGapSec(val);
+                        saveHerdAutoSpawnGapSec(val);
+                      }}
+                      className="w-full bg-transparent border-0 outline-none font-black text-base text-indigo-950 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-900/50 leading-snug">
+                  The sheep herd and mouse swarm take turns spawning one after
+                  another. Gap Between Waves = pause once the current wave has
+                  fully left before the next one appears, so the two never show
+                  at the same time.
                 </span>
               </div>
 
@@ -1046,11 +1327,10 @@ export default function App() {
                       key={option.code}
                       type="button"
                       onClick={() => handleWeaponSwitchKeyChange(option.code)}
-                      className={`py-2 px-2 border-2 rounded-xl text-[11px] font-black transition-all ${
-                        weaponSwitchKey === option.code
+                      className={`py-2 px-2 border-2 rounded-xl text-[11px] font-black transition-all ${weaponSwitchKey === option.code
                           ? 'bg-indigo-100/80 border-indigo-900 scale-[1.02]'
                           : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
+                        }`}
                     >
                       [{option.label}]
                     </button>
@@ -1067,11 +1347,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => handleWeaponModeChange('hammer')}
-                    className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      weaponMode === 'hammer'
+                    className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${weaponMode === 'hammer'
                         ? 'bg-indigo-100/80 border-indigo-900 scale-[1.02]'
                         : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <span className="text-base leading-none">🔨</span>
                     <span>Hammer</span>
@@ -1082,11 +1361,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => handleWeaponModeChange('gun')}
-                    className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${
-                      weaponMode === 'gun'
+                    className={`py-2.5 px-2 border-2 rounded-xl text-[11px] font-black flex flex-col items-center gap-1 transition-all ${weaponMode === 'gun'
                         ? 'bg-indigo-100/80 border-indigo-900 scale-[1.02]'
                         : 'bg-white border-slate-200 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     <span className="text-base leading-none">🔫</span>
                     <span>Gun</span>
@@ -1103,6 +1381,8 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
+                    setTargetScore(targetScoreDraft);
+                    saveTargetScore(targetScoreDraft);
                     handleResetEverything();
                     setPreviewEstateLevel(null);
                     setShowSettingsModal(false);
@@ -1118,6 +1398,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
+                  setTargetScore(targetScoreDraft);
+                  saveTargetScore(targetScoreDraft);
                   setPreviewEstateLevel(null);
                   setShowSettingsModal(false);
                   audioManager.playPop();
@@ -1177,7 +1459,7 @@ export default function App() {
       <AnimatePresence>
         {showVictoryModal && (
           <div className="fixed inset-0 w-screen h-screen bg-indigo-950/95 backdrop-blur-md flex items-center justify-center z-50 p-4">
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -1199,7 +1481,7 @@ export default function App() {
                   </span>
                 </div>
               )}
-              
+
               <div className="bg-yellow-100/50 p-5 rounded-2xl border-2 border-indigo-900 shadow-[0_4px_0_#1e1b4b] mb-6">
                 <span className="text-[10px] font-black text-indigo-950/60 uppercase block">FINAL SCORE</span>
                 <span className="text-3xl font-black text-emerald-600 block mt-1">{formatCounterLabel(stats.score)} ✨</span>
@@ -1213,12 +1495,15 @@ export default function App() {
                 }}
                 className="w-full bg-yellow-400 hover:bg-yellow-300 text-indigo-950 border-2 border-indigo-900 font-extrabold uppercase tracking-wide py-4 px-6 rounded-2xl shadow-[0_6px_0_#b45309] active:translate-y-1 active:shadow-none transition-all duration-100 text-sm"
               >
-                CONSTRUCT NEW TOWER 🔄
+                BEGIN TO RICH AGAIN 🔄
               </button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* FULL-SCREEN LEVEL TRANSITION EFFECT */}
+      <LevelUpTransition currentLevel={activeEstateLevel} />
 
       {/* ABSOLUTE FLOATING NOTIFICATION ALERTS */}
       <AnimatePresence>

@@ -6,6 +6,27 @@
 export { randomAttackAngle } from './shared/attackGeometry';
 export type { AttackAngle } from './shared/attackGeometry';
 
+export {
+  FIXED_MONEY_ACTIONS,
+  FIXED_MONEY_ACTION_IDS,
+  MAX_ACTION_MONEY,
+  clampActionMoney,
+  getActionMoneyAmount,
+} from './config/actionMoneyConfig';
+export type {
+  ActionMoneyKey,
+  ActionMoneyOverrides,
+  FixedMoneyAction,
+} from './config/actionMoneyConfig';
+export {
+  ACTION_MONEY_OVERRIDES_STORAGE_KEY,
+  hasActionMoneyOverride,
+  loadActionMoneyOverrides,
+  saveActionMoneyOverrides,
+} from './config/actionMoneySettings';
+export { useActionMoneySettings } from './hooks/useActionMoneySettings';
+export { ActionMoneySettingsSection } from './components/ActionMoneySettingsSection';
+
 export { ActionSpawnQueueDock } from './shared/ActionSpawnQueueDock';
 export {
   pushActionSpawnQueue,
@@ -36,8 +57,8 @@ export { BOW_PENALTY } from './shared/combatPenalties';
 export {
   AvatarStrikeLayer,
   useAvatarStrike,
-  AVATAR_STRIKE_ARROW_COUNT,
   key3AvatarStrikeAction,
+  GRAPPLE_CASH_AMOUNT,
 } from './key-3';
 export {
   AvatarCoinLayer,
@@ -47,13 +68,12 @@ export {
   key4AvatarCoinAction,
 } from './key-4';
 export {
-  DivineCrossbowLayer,
-  useDivineCrossbow,
-  key5DivineCrossbowAction,
-  AvatarBubbleLayer,
-  useAvatarBubble,
-  key5AvatarBubbleAction,
+  MoneySpinnerLayer,
+  useMoneySpinner,
+  SPINNER_SEGMENTS,
+  key5MoneySpinnerAction,
 } from './key-5';
+export type { ActiveMoneySpinner } from './key-5';
 export {
   DiceRollLayer,
   useDiceRoll,
@@ -82,6 +102,7 @@ export {
   PigBankLayer,
   usePigBank,
   PIG_BANK_REWARD,
+  PIG_BANK_REWARD_RAMP_MS,
   keyPPigBankAction,
 } from './key-10';
 export {
@@ -94,7 +115,14 @@ export {
   MissileStrikeLayer,
   useMissileStrike,
   key12MissileAction,
+  MISSILE_PENALTY,
 } from './key-12';
+export {
+  TomatoLayer,
+  useTomato,
+  TOMATO_REWARD,
+  key13TomatoAction,
+} from './key-13';
 
 export { keyActions } from './keyActions';
 export { useKeyActions } from './useKeyActions';
@@ -105,6 +133,7 @@ export {
   KEY_2_BOW,
   KEY_3_AVATAR_STRIKE,
   KEY_4_AVATAR_COIN,
+  KEY_5_MONEY_SPINNER,
   KEY_5_AVATAR_BUBBLE,
   KEY_6_DICE_ROLL,
   KEY_7_VERTICAL_LIGHTNING,
@@ -113,6 +142,7 @@ export {
   KEY_P_PIG_BANK,
   KEY_O_BUTTERFLY,
   KEY_I_MISSILE,
+  KEY_U_TOMATO,
 } from './types';
 export type { KeyActionContext, KeyActionDefinition } from './types';
 export type { DiceLandPayload } from './key-6/types';

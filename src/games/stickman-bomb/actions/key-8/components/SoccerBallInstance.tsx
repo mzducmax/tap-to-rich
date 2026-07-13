@@ -1,5 +1,5 @@
 /**
- * One kicked soccer ball session (key 8).
+ * One dropped-knife session (key 8).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,14 +12,10 @@ import {
   resizeSoccerBallCanvas,
   spawnSoccerBallKick,
 } from '../logic/soccerBallCanvas';
-import {
-  boundsRectFromSize,
-  estateRectFromDom,
-} from '../logic/soccerBallSpawn';
+import { boundsRectFromSize, estateRectFromDom } from '../logic/soccerBallSpawn';
 
 type SoccerBallInstanceProps = {
   kickId: number;
-  angleDeg: number;
   layerRef: React.RefObject<HTMLDivElement | null>;
   gameplayTargetRef: React.RefObject<HTMLElement | null>;
   onEstateHit: () => void;
@@ -28,7 +24,6 @@ type SoccerBallInstanceProps = {
 
 function SoccerBallInstanceInner({
   kickId,
-  angleDeg,
   layerRef,
   gameplayTargetRef,
   onEstateHit,
@@ -44,7 +39,7 @@ function SoccerBallInstanceInner({
     const sequenceId = ++sequenceIdRef.current;
     let cancelled = false;
 
-    async function runKick() {
+    async function runDrop() {
       const ready = await waitForRefs([layerRef, gameplayTargetRef]);
       if (!ready) {
         onCompleteRef.current();
@@ -66,9 +61,7 @@ function SoccerBallInstanceInner({
       }
 
       const layer = layerRef.current!;
-      const estate = gameplayTargetRef.current!;
       const layerRect = layer.getBoundingClientRect();
-      const estateRect = estate.getBoundingClientRect();
 
       if (layerRect.width <= 0 || layerRect.height <= 0) {
         onCompleteRef.current();
@@ -77,14 +70,18 @@ function SoccerBallInstanceInner({
 
       resizeSoccerBallCanvas(layerRect.width, layerRect.height);
 
-      const bounds = boundsRectFromSize(layerRect.width, layerRect.height);
-      const estateBox = estateRectFromDom(estateRect, layerRect, 4);
+      const estate = gameplayTargetRef.current;
+      let bounds;
+      if (estate) {
+        const estateRect = estate.getBoundingClientRect();
+        bounds = estateRectFromDom(estateRect, layerRect, -15);
+      } else {
+        bounds = boundsRectFromSize(layerRect.width, layerRect.height);
+      }
 
       await spawnSoccerBallKick({
         kickId,
-        angleDeg,
         bounds,
-        estate: estateBox,
         onEstateHit: () => onEstateHitRef.current(),
       });
 
@@ -92,13 +89,13 @@ function SoccerBallInstanceInner({
       onCompleteRef.current();
     }
 
-    void runKick();
+    void runDrop();
 
     return () => {
       cancelled = true;
       cancelSoccerBallKick(kickId);
     };
-  }, [angleDeg, gameplayTargetRef, kickId, layerRef]);
+  }, [gameplayTargetRef, kickId, layerRef]);
 
   return null;
 }

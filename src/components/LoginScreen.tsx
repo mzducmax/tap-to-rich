@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, Mail, Boxes } from 'lucide-react';
+import { LogIn, Mail } from 'lucide-react';
+import vliveProLogo from '../assets/img/vlive-pro.png';
 
 const LAST_EMAIL_KEY = 'stack_last_email';
 
@@ -20,6 +21,25 @@ interface LoginScreenProps {
   defaultEmail?: string;
 }
 
+/** Spinning gold coin with a $ sign. */
+function Coin({ size = 28 }: { size?: number }) {
+  return (
+    <div
+      className="oc-coin-spin rounded-full flex items-center justify-center font-black text-amber-800 select-none"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.55,
+        background: 'radial-gradient(circle at 35% 30%, #fff3b0, #ffcf3f 45%, #f59e0b 75%, #b45309)',
+        boxShadow: 'inset 0 -2px 4px rgba(180,83,9,0.6), inset 0 2px 3px rgba(255,255,255,0.7), 0 2px 6px rgba(0,0,0,0.25)',
+        border: '2px solid #fbbf24',
+      }}
+    >
+      $
+    </div>
+  );
+}
+
 export default function LoginScreen({
   onLogin,
   isLoading = false,
@@ -36,49 +56,127 @@ export default function LoginScreen({
     onLogin(trimmed);
   };
 
+  // Pre-computed falling coins (deterministic positions)
+  const coins = Array.from({ length: 14 }, (_, i) => ({
+    left: `${(i * 53 + 7) % 100}%`,
+    size: 14 + ((i * 7) % 20),
+    delay: (i % 7) * 0.9,
+    duration: 6 + ((i * 3) % 6),
+  }));
+
   return (
-    <div className="w-screen h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1e293b] via-[#5facdf]/30 to-[#1e1b4b] pointer-events-none" />
-      <div className="absolute inset-0 opacity-40 pointer-events-none">
-        {Array.from({ length: 24 }, (_, i) => (
+    <div className="w-screen h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#f59e0b]">
+      {/* Warm radial base */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 50% 42%, #ffe082 0%, #ffb300 35%, #fb8c00 70%, #e65100 100%)',
+        }}
+      />
+
+      {/* Rotating sunburst rays */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div
+          className="oc-rays-spin"
+          style={{
+            width: '180vmax',
+            height: '180vmax',
+            background:
+              'repeating-conic-gradient(from 0deg, rgba(255,255,255,0.18) 0deg 7deg, transparent 7deg 14deg)',
+            maskImage: 'radial-gradient(circle, black 0%, transparent 70%)',
+            WebkitMaskImage: 'radial-gradient(circle, black 0%, transparent 70%)',
+          }}
+        />
+      </div>
+
+      {/* Falling coins */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {coins.map((c, i) => (
           <div
             key={i}
-            className="absolute bg-white rounded-full animate-twinkle"
+            className="absolute"
             style={{
-              left: `${(i * 37) % 100}%`,
-              top: `${(i * 23) % 70}%`,
-              width: 3,
-              height: 3,
-              animationDelay: `${(i % 5) * 0.6}s`,
+              left: c.left,
+              top: 0,
+              animation: `oc-coin-fall ${c.duration}s linear ${c.delay}s infinite`,
             }}
-          />
+          >
+            <Coin size={c.size} />
+          </div>
         ))}
       </div>
 
+      {/* Soft vignette */}
+      <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle,transparent_55%,rgba(120,53,15,0.45)_100%)]" />
+
       <motion.div
-        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 22 }}
         className="relative w-full max-w-md"
       >
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[28px] p-8 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg mb-4">
-              <Boxes className="w-8 h-8 text-indigo-950" />
+        {/* Hammer + coin hero */}
+        <div className="flex flex-col items-center text-center mb-6 relative z-10">
+          <div className="relative oc-float-bob mb-2" style={{ width: 120, height: 120 }}>
+            {/* impact flash */}
+            <div
+              className="oc-impact absolute left-1/2 top-[68%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{
+                width: 90,
+                height: 90,
+                background: 'radial-gradient(circle, #fffbe6 0%, #ffd24a 45%, transparent 70%)',
+              }}
+            />
+            {/* coin being smashed */}
+            <div className="absolute left-1/2 bottom-1 -translate-x-1/2">
+              <Coin size={56} />
             </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Stack Box</h1>
-            <p className="text-xs text-white/50 mt-1 font-medium">Sign in with Vlive Pro to play and receive live gifts</p>
+            {/* hammer */}
+            <div
+              className="oc-hammer-bounce absolute right-0 top-0 text-6xl"
+              style={{ filter: 'drop-shadow(0 6px 6px rgba(120,53,15,0.5))' }}
+            >
+              🔨
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <h1
+            className="oc-title-pop font-black tracking-tight leading-none oc-text-gold"
+            style={{
+              fontSize: 52,
+              fontFamily: 'var(--font-heading)',
+              filter: 'drop-shadow(0 3px 0 rgba(120,53,15,0.55)) drop-shadow(0 6px 10px rgba(0,0,0,0.25))',
+              WebkitTextStroke: '2px rgba(146,64,14,0.55)',
+            }}
+          >
+            ONLY CLICK
+          </h1>
+          <p className="text-sm font-bold text-amber-900/80 mt-1 tracking-wide drop-shadow-sm">
+            Smash the coin — just click for gold! 💰
+          </p>
+        </div>
+
+        {/* Card */}
+        <div
+          className="relative rounded-[28px] p-7 overflow-hidden"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,251,235,0.96), rgba(254,243,199,0.94))',
+            border: '3px solid #fbbf24',
+            boxShadow:
+              '0 24px 70px rgba(120,53,15,0.45), inset 0 2px 0 rgba(255,255,255,0.9), inset 0 -3px 8px rgba(180,83,9,0.18)',
+          }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
             <div className="space-y-1.5">
               <label
                 htmlFor="login-email"
-                className="text-[10px] font-black uppercase tracking-widest text-white/50"
+                className="text-[11px] font-black uppercase tracking-widest text-amber-700"
               >
                 Account email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-500" />
                 <input
                   id="login-email"
                   type="email"
@@ -89,42 +187,71 @@ export default function LoginScreen({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full bg-black/35 border border-white/15 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/50 disabled:opacity-60"
+                  className="w-full bg-white border-2 border-amber-200 rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-amber-950 placeholder:text-amber-300 focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-300/40 disabled:opacity-60 transition-all"
                 />
               </div>
             </div>
 
             {error ? (
-              <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-400/20 rounded-xl px-3 py-2.5 leading-relaxed">
+              <p className="text-xs font-semibold text-rose-700 bg-rose-100 border-2 border-rose-300 rounded-xl px-3 py-2.5 leading-relaxed">
                 {error}
               </p>
             ) : null}
 
-            <button
+            <motion.button
               type="submit"
               disabled={isLoading || !email.trim()}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wide shadow-lg transition-all active:scale-[0.98]"
+              whileHover={{ scale: isLoading ? 1 : 1.03 }}
+              whileTap={{ scale: isLoading ? 1 : 0.96 }}
+              className="relative w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-amber-950 font-black text-base uppercase tracking-wide overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{
+                background: 'linear-gradient(180deg, #ffe066 0%, #ffc107 45%, #ff9800 100%)',
+                border: '2px solid #fff3c4',
+                boxShadow:
+                  '0 8px 0 #c2740a, 0 12px 18px rgba(120,53,15,0.4), inset 0 2px 0 rgba(255,255,255,0.7)',
+              }}
             >
+              {/* shine sweep */}
+              {!isLoading && (
+                <span
+                  className="oc-shine-sweep absolute top-0 left-0 h-full w-1/3 pointer-events-none"
+                  style={{
+                    background:
+                      'linear-gradient(90deg, transparent, rgba(255,255,255,0.75), transparent)',
+                  }}
+                />
+              )}
               {isLoading ? (
                 <>
                   <motion.span
                     animate={{ rotate: 360 }}
                     transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                    className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white"
+                    className="w-5 h-5 rounded-full border-[3px] border-amber-900/30 border-t-amber-900"
                   />
-                  <span>{loadingMessage}</span>
+                  <span className="relative">{loadingMessage}</span>
                 </>
               ) : (
                 <>
-                  <LogIn className="w-4 h-4" />
-                  <span>Sign in &amp; play</span>
+                  <LogIn className="w-5 h-5 relative" />
+                  <span className="relative">Play now</span>
                 </>
               )}
-            </button>
+            </motion.button>
           </form>
 
-          <p className="text-[10px] text-white/35 text-center mt-6 leading-relaxed">
-            A Vlive Pro account is required to connect TikTok live and sync the leaderboard.
+          <div className="flex items-center justify-center gap-2 mt-5">
+            <img
+              src={vliveProLogo}
+              alt="zOne Pro"
+              className="w-7 h-7 rounded-lg shadow-md"
+              style={{ boxShadow: '0 2px 6px rgba(120,53,15,0.35)' }}
+            />
+            <span className="text-xs font-black text-amber-800 tracking-wide">
+              Powered by ZOne Pro
+            </span>
+          </div>
+          <p className="text-[11px] font-medium text-amber-700/80 text-center mt-2 leading-relaxed">
+            Sign in with zOne Pro to connect TikTok live &amp; sync the leaderboard.
           </p>
         </div>
       </motion.div>

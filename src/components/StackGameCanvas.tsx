@@ -171,7 +171,7 @@ export const StackGameCanvas = forwardRef<StackGameCanvasHandle, StackGameCanvas
       setPerfectCombo({ show: true, count, x: Math.random() });
       comboTimeoutRef.current = setTimeout(() => {
         setPerfectCombo({ show: false, count: 0, x: 0 });
-      }, 750); // Fast popup dismiss (originally 1400ms)
+      }, 1750); // Hold combo popup ~1s longer for readability
     };
 
     // Slice / Cut off box logic
@@ -950,16 +950,18 @@ export const StackGameCanvas = forwardRef<StackGameCanvasHandle, StackGameCanvas
 
         {/* Perfect combo streak flash notification */}
         {perfectCombo.show && !isGameOverState && (
-          <div key={perfectCombo.x} className="absolute top-[28%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10 select-none animate-bounce flex flex-col items-center">
-            <div className="bg-slate-900/60 backdrop-blur-md border border-yellow-400/30 px-6 py-2.5 rounded-2xl shadow-[0_8px_32px_rgba(253,224,71,0.25)] flex items-center gap-2">
-              <span className="text-yellow-300 animate-pulse text-lg">✨</span>
+          <div key={perfectCombo.x} className="absolute top-[28%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-10 select-none animate-bounce flex flex-col items-center will-change-transform">
+            {/* Single solid-gradient bubble — no backdrop-filter, one GPU layer */}
+            <div
+              className="border border-yellow-400/40 px-6 py-2.5 rounded-2xl flex items-center gap-2.5"
+              style={{ background: 'linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(30,27,75,0.92) 100%)' }}
+            >
               <span className="bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-400 bg-clip-text text-transparent font-black text-2xl md:text-3xl tracking-wide drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] uppercase">
                 PERFECT
               </span>
-              <span className="text-pink-400 bg-pink-950/70 border border-pink-500/30 font-black text-xs px-2.5 py-0.5 rounded-full shadow-inner">
+              <span className="text-pink-300 bg-pink-950/80 border border-pink-500/40 font-black text-xs px-2.5 py-0.5 rounded-full">
                 x{perfectCombo.count}
               </span>
-              <span className="text-yellow-300 animate-pulse text-lg">✨</span>
             </div>
           </div>
         )}

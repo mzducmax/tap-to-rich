@@ -1,5 +1,6 @@
 /**
- * Score-based backgrounds — positive L0–L5, negative L1–L6 (score 0 = L0).
+ * Score-based backgrounds — [0, |target|] split evenly across L0–L5,
+ * (-|target|, 0) split evenly across L-1–L-6.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -84,19 +85,26 @@ export function scoreToBackgroundLevel(
   score: number,
   targetScore: number,
 ): BackgroundLevel {
-  if (score === 0) return 0;
-
   const ref = getReferenceMagnitude(targetScore);
+  // Tiny epsilon guards against floating-point rounding pushing an exact step
+  // boundary down into the previous level (e.g. score === step must be level 1).
+  const EPSILON = 1e-9;
 
-  if (score > 0) {
-    const progress = Math.min(1, score / ref);
-    const step = Math.max(1, Math.min(5, Math.ceil(progress * 5)));
-    return step as BackgroundLevel;
+  // Positive side: [0, |target|] split into 6 equal spans, one per level.
+  // Level n spans [n*step, (n+1)*step), so L0 owns the first span and L5 is
+  // reached exactly at |target|. Matches formatLevelThreshold below.
+  if (score >= 0) {
+    const step = ref / POSITIVE_LEVEL_COUNT;
+    const level = Math.min(5, Math.max(0, Math.floor(score / step + EPSILON)));
+    return level as BackgroundLevel;
   }
 
-  const progress = Math.min(1, Math.abs(score) / ref);
-  const step = Math.max(1, Math.min(6, Math.ceil(progress * 6)));
-  return (-step) as BackgroundLevel;
+  const step = ref / NEGATIVE_LEVEL_COUNT;
+  const level = Math.min(
+    NEGATIVE_LEVEL_COUNT,
+    Math.max(1, Math.ceil(Math.abs(score) / step - EPSILON)),
+  );
+  return (-level) as BackgroundLevel;
 }
 
 export function formatLevelLabel(level: BackgroundLevel): string {
@@ -115,27 +123,28 @@ export function formatLevelThreshold(
 ): string {
   const ref = getReferenceMagnitude(targetScore);
 
-  if (level === 0) return '0$';
-
-  if (level > 0) {
-    const step = ref / 5;
-    const start = level === 1 ? 1 : Math.round((level - 1) * step);
-    const end = Math.round(level * step);
+  if (level >= 0) {
+    const step = ref / POSITIVE_LEVEL_COUNT;
+    const start = Math.round(level * step);
+    const end =
+      level === POSITIVE_LEVEL_COUNT - 1
+        ? ref
+        : Math.round((level + 1) * step) - 1;
     return `${formatThresholdAmount(start)} – ${formatThresholdAmount(end)}`;
   }
 
   const n = Math.abs(level);
-  const step = ref / 6;
-  const start = n === 1 ? -1 : -Math.round((n - 1) * step);
+  const step = ref / NEGATIVE_LEVEL_COUNT;
+  const start = -(Math.round((n - 1) * step) + 1);
   const end = -Math.round(n * step);
   return `${formatThresholdAmount(start)} – ${formatThresholdAmount(end)}`;
 }
 
 export function getTargetLevelHint(targetScore: number): string {
   const ref = getReferenceMagnitude(targetScore);
-  const posStep = Math.round(ref / 5);
-  const negStep = Math.round(ref / 6);
-  return `L0 at 0$. Positive L1–L5 (~${posStep.toLocaleString()}$ each). Negative L-1–L-6 (~${negStep.toLocaleString()}$ each). Based on |target| = ${ref.toLocaleString()}$.`;
+  const posStep = Math.round(ref / POSITIVE_LEVEL_COUNT);
+  const negStep = Math.round(ref / NEGATIVE_LEVEL_COUNT);
+  return `Positive L0–L5 (~${posStep.toLocaleString()}$ each). Negative L-1–L-6 (~${negStep.toLocaleString()}$ each). Based on |target| = ${ref.toLocaleString()}$.`;
 }
 
 /** @deprecated use ALL_BACKGROUND_LEVELS */

@@ -109,7 +109,7 @@ export function EstateSettingsSection({
     <div className="mb-4 flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-black uppercase text-indigo-950/70 tracking-wider">
-          Estate (Tài sản)
+          Estate
         </span>
         {customCount > 0 && (
           <button
@@ -117,15 +117,15 @@ export function EstateSettingsSection({
             onClick={onResetAllEstateLevelImages}
             className="text-[9px] font-black uppercase tracking-wide text-rose-600 hover:text-rose-800"
           >
-            Khôi phục tất cả
+            Reset All
           </button>
         )}
       </div>
       <p className="text-[10px] font-bold text-indigo-900/50 leading-snug -mt-1">
-        {getTargetLevelHint(targetScore)} Chọn cấp rồi đổi ảnh minh hoạ cho từng level.
+        {getTargetLevelHint(targetScore)} Select a level, then change its image.
       </p>
       <p className="text-[10px] font-bold text-amber-800/80 leading-snug">
-        {isPreviewing ? 'Đang xem' : 'Đang chọn'}: {formatLevelLabel(selectedLevel)} ·{' '}
+        {isPreviewing ? 'Previewing' : 'Selected'}: {formatLevelLabel(selectedLevel)} ·{' '}
         {formatLevelThreshold(selectedLevel, targetScore)}
         {isPreviewing && (
           <>
@@ -136,7 +136,7 @@ export function EstateSettingsSection({
               onClick={() => onPreviewEstateLevelChange(null)}
               className="underline text-amber-900/70 hover:text-amber-950"
             >
-              theo điểm
+              follow score
             </button>
           </>
         )}
@@ -153,7 +153,7 @@ export function EstateSettingsSection({
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <span className="text-[10px] font-black text-amber-950/80">
             {formatLevelLabel(selectedLevel)}
-            {selectedIsCustom ? ' · ảnh tùy chỉnh' : ' · ảnh mặc định'}
+            {selectedIsCustom ? ' · custom image' : ' · default image'}
           </span>
           <div className="flex flex-wrap gap-1.5">
             <button
@@ -161,7 +161,7 @@ export function EstateSettingsSection({
               onClick={() => fileInputRef.current?.click()}
               className="rounded-lg border-2 border-indigo-900 bg-white px-2.5 py-1 text-[10px] font-black uppercase text-indigo-950 hover:bg-indigo-50"
             >
-              Đổi ảnh
+              Change Image
             </button>
             {selectedIsCustom && (
               <button
@@ -169,7 +169,7 @@ export function EstateSettingsSection({
                 onClick={() => onEstateLevelImageReset(selectedLevel)}
                 className="rounded-lg border-2 border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-50"
               >
-                Mặc định
+                Default
               </button>
             )}
           </div>
@@ -214,7 +214,7 @@ export function EstateSettingsSection({
         ))}
       </div>
       <p className="text-[9px] font-bold text-indigo-900/40 leading-snug">
-        Chấm xanh = đã đổi ảnh. Mặc định:{' '}
+        Green dot = custom image. Default:{' '}
         <span className="font-mono">{getDefaultEstateImageUrl(selectedLevel).split('/').pop()}</span>
       </p>
     </div>

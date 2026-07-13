@@ -1,16 +1,14 @@
 /**
- * Key [5] — divine crossbow at bottom center fires bolts at the estate.
+ * Key [5] — money spinner prize wheel; the landed tier is credited to the
+ * estate when the spin settles.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-import { KEY_5_AVATAR_BUBBLE, canRunGameplayKey, type KeyActionDefinition } from '../types';
+import { KEY_5_MONEY_SPINNER, canRunGameplayKey, type KeyActionDefinition } from '../types';
 
-export const key5DivineCrossbowAction: KeyActionDefinition = {
-  key: KEY_5_AVATAR_BUBBLE,
-  label: 'Divine crossbow',
+export const key5MoneySpinnerAction: KeyActionDefinition = {
+  key: KEY_5_MONEY_SPINNER,
+  label: 'Money spinner',
   canRun: canRunGameplayKey,
-  run: ({ triggerDivineCrossbow }) => triggerDivineCrossbow(),
+  run: ({ triggerMoneySpinner }) => triggerMoneySpinner(),
 };
-
-/** @deprecated Use key5DivineCrossbowAction */
-export const key5AvatarBubbleAction = key5DivineCrossbowAction;

@@ -13,6 +13,8 @@ export const BIRD_POOP_CENTER_HALF_BAND = 0.22;
 /** Extra horizontal reach when checking bird vs counter for poop drops. */
 export const BIRD_POOP_COUNTER_PAD_X = 72;
 export const BIRD_CROSSING_MS = 5_800;
+/** Small buffer added after the last bird's computed exit time before stopping wave audio/state. */
+export const BIRD_EXIT_BUFFER_MS = 300;
 export const SPLAT_LIFETIME_MS = 2_400;
 export const SPLAT_FADE_MS = 700;
 

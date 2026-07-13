@@ -1,0 +1,18 @@
+{
+  "moneyActions": [
+    { "key": "0", "actionName": "Hacker Effect", "type": "penalty", "amount": -20000, "source": "actions/key-0/config/hackerEffectConfig.ts:HACKER_PENALTY" },
+    { "key": "2", "actionName": "Plinko - Bet", "type": "bet", "amount": -50, "source": "actions/key-2/config/plinkoConfig.ts:PLINKO_BET" },
+    { "key": "2", "actionName": "Plinko - Win (bet x multiplier)", "type": "reward", "amount": null, "formula": "PLINKO_BET * slotMultiplier", "source": "actions/key-2/config/plinkoConfig.ts" },
+    { "key": "2", "actionName": "Bow", "type": "penalty", "amount": -5, "source": "actions/shared/combatPenalties.ts:BOW_PENALTY" },
+    { "key": "3", "actionName": "Avatar Strike / Grapple Hook", "type": "reward", "amount": 100, "source": "actions/key-3/config/grappleHookConfig.ts:GRAPPLE_CASH_AMOUNT" },
+    { "key": "4", "actionName": "Avatar Coin (per coin)", "type": "reward", "amount": 5, "source": "actions/key-4/config/avatarCoinConfig.ts:AVATAR_COIN_REWARD" },
+    { "key": "5", "actionName": "Money Spinner", "type": "mixed", "amount": null, "formula": "spinner wedge tier (+10..+1000 win, -20/-50 penalty, weighted)", "source": "actions/key-5/config/moneySpinnerConfig.ts:SPINNER_SEGMENTS" },
+    { "key": "6", "actionName": "Dice Roll", "type": "reward", "amount": null, "formula": "faceValue(1-6) * randomMultiplier(10-100)", "source": "actions/key-6/config/diceRollConfig.ts" },
+    { "key": "8", "actionName": "Soccer Ball", "type": "penalty", "amount": -5, "source": "actions/key-8/config/soccerBallConfig.ts:SOCCER_BALL_PENALTY" },
+    { "key": "9", "actionName": "Trump Spawn", "type": "reward", "amount": 10000, "source": "actions/key-9/config/trumpSpawnConfig.ts:TRUMP_SPAWN_REWARD" },
+    { "key": "p", "actionName": "Pig Bank", "type": "reward", "amount": 10000, "note": "ramps up while key held", "source": "actions/key-10/config/pigBankConfig.ts:PIG_BANK_REWARD" },
+    { "key": "o", "actionName": "Butterfly", "type": "reward", "amount": 20, "source": "actions/key-11/config/butterflyConfig.ts:BUTTERFLY_REWARD" },
+    { "key": "i", "actionName": "Missile Strike", "type": "penalty", "amount": -20, "source": "actions/key-12/config/missileStrikeConfig.ts:MISSILE_PENALTY" },
+    { "key": "u", "actionName": "Tomato Throw", "type": "reward", "amount": 20, "source": "actions/key-13/config/tomatoConfig.ts:TOMATO_REWARD" }
+  ]
+}

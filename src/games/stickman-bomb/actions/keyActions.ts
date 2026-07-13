@@ -8,7 +8,7 @@ import { key1BombAction } from './key-1/action';
 import { key2PlinkoAction } from './key-2/action';
 import { key3AvatarStrikeAction } from './key-3/action';
 import { key4AvatarCoinAction } from './key-4/action';
-import { key5DivineCrossbowAction } from './key-5/action';
+import { key5MoneySpinnerAction } from './key-5/action';
 import { key6DiceRollAction } from './key-6/action';
 import { key7VerticalLightningAction } from './key-7/action';
 import { key8SoccerBallAction } from './key-8/action';
@@ -16,6 +16,7 @@ import { key9TrumpSpawnAction } from './key-9/action';
 import { keyPPigBankAction } from './key-10/action';
 import { key11ButterflyAction } from './key-11/action';
 import { key12MissileAction } from './key-12/action';
+import { key13TomatoAction } from './key-13/action';
 import type { KeyActionDefinition } from './types';
 
 export const keyActions: KeyActionDefinition[] = [
@@ -24,7 +25,7 @@ export const keyActions: KeyActionDefinition[] = [
   key2PlinkoAction,
   key3AvatarStrikeAction,
   key4AvatarCoinAction,
-  key5DivineCrossbowAction,
+  key5MoneySpinnerAction,
   key6DiceRollAction,
   key7VerticalLightningAction,
   key8SoccerBallAction,
@@ -32,4 +33,5 @@ export const keyActions: KeyActionDefinition[] = [
   keyPPigBankAction,
   key11ButterflyAction,
   key12MissileAction,
+  key13TomatoAction,
 ];

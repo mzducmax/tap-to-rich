@@ -7,6 +7,10 @@ export { BackgroundSettingsSection } from './components/BackgroundSettingsSectio
 export { ClassicBackgroundScene } from './components/ClassicBackgroundScene';
 export { GameBackgroundRoot } from './components/GameBackgroundRoot';
 export { LevelBackgroundLayer } from './components/LevelBackgroundLayer';
+export { CrestOrnament, CornerFlourish } from './components/LevelOrnaments';
+
+export { getLevelTheme } from './config/levelTheme';
+export type { LevelTheme } from './config/levelTheme';
 
 export {
   ATMOSPHERE_THEME_OPTIONS,

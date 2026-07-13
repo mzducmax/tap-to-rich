@@ -9,16 +9,16 @@ import {
   HAMMER_HEAD_NORM_Y,
   HAMMER_IDLE_ANGLE,
   HAMMER_IMPACT_ANGLE,
-  HAMMER_MOLE_SPRITE_SIZE,
-  HAMMER_MOLE_STRIKE_PIVOT_OFFSET_Y,
   HAMMER_PIVOT_NORM_X,
   HAMMER_PIVOT_NORM_Y,
   HAMMER_SMASH_ANGLE,
+  HAMMER_SMASH_DROP_Y,
   HAMMER_SPRITE_ANGLE_OFFSET,
   HAMMER_SPRITE_SIZE,
   HAMMER_SPRITE_URL,
   HAMMER_STRIKE_PIVOT_OFFSET_Y,
   HAMMER_WINDUP_ANGLE,
+  HAMMER_WINDUP_LIFT_Y,
 } from '../config/hammerConfig';
 
 export type HammerImpactPayload = {
@@ -62,8 +62,6 @@ type HammerCursorProps = {
   onHammerImpact?: (payload: HammerImpactPayload) => void;
   enabled?: boolean;
   visible?: boolean;
-  /** Shrink hammer to match whack-a-mole mouse scale. */
-  moleMode?: boolean;
 };
 
 function getHeadLocalOffset(spriteSize: number) {
@@ -145,9 +143,16 @@ function getHammerTarget(
   strikePivotOffsetY: number,
 ) {
   if (phase === 'WINDUP' || phase === 'SMASH' || phase === 'RECOVER') {
+    // Follow the live cursor during the swing so the hammer never freezes
+    // in one spot. Add a phase-based vertical travel so the whole hammer
+    // physically lifts on windup then drops on the smash instead of just
+    // rotating around a fixed hand point (which reads as frozen).
+    let swingLift = 0;
+    if (phase === 'WINDUP') swingLift = HAMMER_WINDUP_LIFT_Y;
+    else if (phase === 'SMASH') swingLift = HAMMER_SMASH_DROP_Y;
     return {
-      x: clickX,
-      y: clickY - strikePivotOffsetY,
+      x: mouseX,
+      y: mouseY - strikePivotOffsetY + swingLift,
     };
   }
 
@@ -214,16 +219,13 @@ export function HammerCursor({
   onHammerImpact,
   enabled = true,
   visible = true,
-  moleMode = false,
 }: HammerCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   const onHammerImpactRef = useRef(onHammerImpact);
   const visibleRef = useRef(visible);
-  const moleModeRef = useRef(moleMode);
   onHammerImpactRef.current = onHammerImpact;
   visibleRef.current = visible;
-  moleModeRef.current = moleMode;
 
   useEffect(() => {
     if (!enabled) return;
@@ -280,19 +282,25 @@ export function HammerCursor({
       });
     };
 
+    // Cache the container rect — reading getBoundingClientRect on every
+    // mousemove forces a synchronous layout pass, which stutters the whole
+    // game at high pointer polling rates.
+    let containerRect = container.getBoundingClientRect();
+
     const resize = () => {
-      const rect = container.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      containerRect = container.getBoundingClientRect();
+      canvas.width = containerRect.width;
+      canvas.height = containerRect.height;
     };
 
-    const toLocalCoords = (clientX: number, clientY: number) => {
-      const rect = container.getBoundingClientRect();
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
-      };
+    const refreshRect = () => {
+      containerRect = container.getBoundingClientRect();
     };
+
+    const toLocalCoords = (clientX: number, clientY: number) => ({
+      x: clientX - containerRect.left,
+      y: clientY - containerRect.top,
+    });
 
     const handleMouseMove = (event: MouseEvent) => {
       const local = toLocalCoords(event.clientX, event.clientY);
@@ -359,15 +367,16 @@ export function HammerCursor({
 
       if (screenShakeRef.value > 0) screenShakeRef.value *= 0.8;
 
-      const targetSize = moleModeRef.current
-        ? HAMMER_MOLE_SPRITE_SIZE
-        : HAMMER_SPRITE_SIZE;
-      const targetOffsetY = moleModeRef.current
-        ? HAMMER_MOLE_STRIKE_PIVOT_OFFSET_Y
-        : HAMMER_STRIKE_PIVOT_OFFSET_Y;
+      const targetSize = HAMMER_SPRITE_SIZE;
+      const targetOffsetY = HAMMER_STRIKE_PIVOT_OFFSET_Y;
       hammerScaleRef.size += (targetSize - hammerScaleRef.size) * 0.14;
       hammerScaleRef.strikeOffsetY +=
         (targetOffsetY - hammerScaleRef.strikeOffsetY) * 0.14;
+
+      // Keep the impact anchor on the live cursor so the payload matches
+      // where the head lands while the hammer tracks the mouse mid-swing.
+      clickPoint.x = mouse.x;
+      clickPoint.y = mouse.y;
 
       updateHammer(
         hammer,
@@ -398,9 +407,8 @@ export function HammerCursor({
     };
 
     resize();
-    const rect = container.getBoundingClientRect();
-    mouse.x = rect.width / 2;
-    mouse.y = rect.height / 2;
+    mouse.x = containerRect.width / 2;
+    mouse.y = containerRect.height / 2;
     hammer.x = mouse.x;
     hammer.y = mouse.y;
 
@@ -408,6 +416,7 @@ export function HammerCursor({
     resizeObserver.observe(container);
     container.addEventListener('mousemove', handleMouseMove);
     container.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('scroll', refreshRect, true);
     rafRef.current = requestAnimationFrame(draw);
 
     return () => {
@@ -415,6 +424,7 @@ export function HammerCursor({
       resizeObserver.disconnect();
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('scroll', refreshRect, true);
     };
   }, [containerRef, enabled]);
 

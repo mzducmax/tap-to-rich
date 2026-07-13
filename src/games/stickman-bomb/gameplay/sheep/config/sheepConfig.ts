@@ -4,7 +4,7 @@
  */
 
 /** Base duration for each sheep's cross animation. */
-export const SHEEP_CROSSING_MS = 5_000;
+export const SHEEP_CROSSING_MS = 6_500;
 /** Auto-spawn interval between sheep herd waves. */
 export const SHEEP_WAVE_INTERVAL_MS = 10_000;
 

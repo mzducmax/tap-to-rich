@@ -1,5 +1,5 @@
 /**
- * Soccer ball kick layer styles (key 8).
+ * Knife drop layer styles (key 8).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 

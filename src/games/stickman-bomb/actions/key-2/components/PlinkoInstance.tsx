@@ -6,6 +6,7 @@
 import React, {
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -14,6 +15,7 @@ import React, {
 import { sleep, waitForRefs } from '../../shared/animationUtils';
 import { isGameplayPaused } from '../../../gameplay/logic/gameplayPause';
 import { formatScoreFloatAmount } from '../../../gameplay/logic/scoreFloatPalette';
+import { audioManager } from '../../../../../utils/audio';
 import {
   PLINKO_AIM_ZONE_H,
   PLINKO_AIM_ZONE_OFFSET_Y,
@@ -101,59 +103,18 @@ function PlinkoInstanceInner({
   }, [dropZone.y]);
 
   useLayoutEffect(() => {
-    dropXRef.current = dropZone.centerX;
-    syncBallPosition(dropZone.centerX);
-  }, [dropZone.centerX, syncBallPosition]);
+    const randomX = dropZone.minX + Math.random() * (dropZone.maxX - dropZone.minX);
+    dropXRef.current = randomX;
+    syncBallPosition(randomX);
+  }, [dropZone.minX, dropZone.maxX, syncBallPosition]);
 
-  const boardXFromClient = useCallback((clientX: number) => {
-    const board = boardRef.current;
-    if (!board) return dropZone.centerX;
-    const rect = board.getBoundingClientRect();
-    return clampDropX(clientX - rect.left);
-  }, [dropZone.centerX]);
-
-  const releaseBall = useCallback(() => {
-    if (phase !== 'aim' || !pointerDownRef.current) return;
-    pointerDownRef.current = false;
-    setDragging(false);
-    setPhase('falling');
+  useEffect(() => {
+    if (phase !== 'aim') return;
+    const timer = window.setTimeout(() => {
+      setPhase('falling');
+    }, 600);
+    return () => window.clearTimeout(timer);
   }, [phase]);
-
-  const handleAimPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (phase !== 'aim') return;
-      e.preventDefault();
-      e.stopPropagation();
-      pointerDownRef.current = true;
-      setDragging(true);
-      e.currentTarget.setPointerCapture(e.pointerId);
-      const x = boardXFromClient(e.clientX);
-      dropXRef.current = x;
-      syncBallPosition(x);
-    },
-    [boardXFromClient, phase, syncBallPosition],
-  );
-
-  const handleAimPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!pointerDownRef.current || phase !== 'aim') return;
-      const x = boardXFromClient(e.clientX);
-      dropXRef.current = x;
-      syncBallPosition(x);
-    },
-    [boardXFromClient, phase, syncBallPosition],
-  );
-
-  const handleAimPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!pointerDownRef.current || phase !== 'aim') return;
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-      releaseBall();
-    },
-    [phase, releaseBall],
-  );
 
   useLayoutEffect(() => {
     if (phase !== 'falling') return;
@@ -177,6 +138,7 @@ function PlinkoInstanceInner({
       const flashPeg = (row: number, col: number) => {
         const key = pegKey(row, col);
         setHitPegKeys((prev) => new Set(prev).add(key));
+        audioManager.playPlinkoBounce();
         window.setTimeout(() => {
           setHitPegKeys((prev) => {
             const next = new Set(prev);
@@ -314,24 +276,19 @@ function PlinkoInstanceInner({
                 aria-hidden
               />
               <div
-                className={`plinko-aim-zone${dragging ? ' plinko-aim-zone--dragging' : ''}`}
+                className="plinko-aim-zone"
                 style={{
                   left: railLeft - aimPad,
                   width: railWidth + aimPad * 2,
                   top: aimTop,
                 }}
-                onPointerDown={handleAimPointerDown}
-                onPointerMove={handleAimPointerMove}
-                onPointerUp={handleAimPointerUp}
-                onPointerCancel={handleAimPointerUp}
-                role="slider"
-                aria-label="Drag to choose drop position"
-                tabIndex={0}
+                role="img"
+                aria-label="Ball auto-dropping"
               >
                 <span className="plinko-aim-zone__chev plinko-aim-zone__chev--left" aria-hidden>
                   ◀
                 </span>
-                <span className="plinko-aim-zone__label">DRAG</span>
+                <span className="plinko-aim-zone__label">AUTO DROP...</span>
                 <span className="plinko-aim-zone__chev plinko-aim-zone__chev--right" aria-hidden>
                   ▶
                 </span>

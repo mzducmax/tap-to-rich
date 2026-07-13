@@ -3,7 +3,13 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo, type RefObject } from 'react';
+import { useMemo, type CSSProperties, type RefObject } from 'react';
+import {
+  CornerFlourish,
+  CrestOrnament,
+} from '../games/stickman-bomb/background/components/LevelOrnaments';
+import { getLevelTheme } from '../games/stickman-bomb/background/config/levelTheme';
+import type { LevelTheme } from '../games/stickman-bomb/background/config/levelTheme';
 import {
   getNegativeProgressPercent,
   getPositiveProgressPercent,
@@ -17,9 +23,6 @@ import type { WeaponMode } from '../games/stickman-bomb/gameplay/config/weaponSe
 type TargetGoalDockProps = {
   score: number;
   targetScore: number;
-  winCurrent?: number;
-  winTotal?: number;
-  showWin?: boolean;
   weaponMode?: WeaponMode;
   hasBorrowed?: boolean;
   shellRef?: RefObject<HTMLDivElement | null>;
@@ -40,20 +43,54 @@ function formatLevelBadgeLabel(level: EstateLevel): string {
   return `Level ${level}`;
 }
 
-function levelBadgeClass(level: number, isWin: boolean, isLose: boolean): string {
-  if (isLose) return 'border-red-300/50 bg-red-500/25 text-red-100';
-  if (isWin) return 'border-emerald-300/50 bg-emerald-500/25 text-emerald-100';
-  if (level < 0) return 'border-rose-300/45 bg-rose-500/20 text-rose-100';
-  if (level > 0) return 'border-amber-300/45 bg-amber-500/20 text-amber-100';
-  return 'border-white/35 bg-white/15 text-white/90';
+const WIN_BADGE_THEME: LevelTheme = {
+  accent: '#34d399',
+  deep: '#065f46',
+  glow: 'rgba(52, 211, 153, 0.55)',
+  text: '#d1fae5',
+};
+
+const LOSE_BADGE_THEME: LevelTheme = {
+  accent: '#f87171',
+  deep: '#7f1d1d',
+  glow: 'rgba(248, 113, 113, 0.55)',
+  text: '#fee2e2',
+};
+
+/** Tier-colored pill — glow scales with |level| so deeper tiers read stronger. */
+function levelBadgeStyle(theme: LevelTheme, depth: number): CSSProperties {
+  return {
+    background: `linear-gradient(135deg, ${theme.deep} 0%, ${theme.accent}44 100%)`,
+    borderColor: theme.accent,
+    color: theme.text,
+    boxShadow: `0 0 ${10 + depth * 4}px ${theme.glow}, 0 4px 12px rgba(0, 0, 0, 0.35)`,
+  };
+}
+
+/** Tier pips — filled count = |level| on the positive (5) or negative (6) ladder. */
+function LevelTierPips({ level, theme }: { level: EstateLevel; theme: LevelTheme }) {
+  const pipCount = level < 0 ? 6 : 5;
+  const filled = Math.abs(level);
+  return (
+    <span className="flex items-center gap-0.75" aria-hidden>
+      {Array.from({ length: pipCount }, (_, i) => (
+        <span
+          key={i}
+          className="h-1.5 w-1.5 rounded-full transition-colors duration-300"
+          style={
+            i < filled
+              ? { background: theme.accent, boxShadow: `0 0 4px ${theme.glow}` }
+              : { background: 'rgba(255, 255, 255, 0.22)' }
+          }
+        />
+      ))}
+    </span>
+  );
 }
 
 export default function TargetGoalDock({
   score,
   targetScore,
-  winCurrent = 0,
-  winTotal = 0,
-  showWin = false,
   weaponMode = 'hammer',
   hasBorrowed = false,
   shellRef,
@@ -63,7 +100,6 @@ export default function TargetGoalDock({
   const posPct = getPositiveProgressPercent(score, targetScore);
   const isWin = hasReachedWinTarget(score, targetScore);
   const isLose = hasReachedLoseTarget(score, targetScore);
-  const showWinStat = showWin && winTotal > 0;
 
   const isNeg = score < 0;
   const isZero = score === 0;
@@ -88,35 +124,74 @@ export default function TargetGoalDock({
           ? 'text-white/50'
           : 'text-amber-200';
 
-  const shellClass = isLose
-    ? 'border-red-400/30 bg-red-500/10'
-    : isWin
-      ? 'border-emerald-400/30 bg-emerald-500/10'
-      : 'border-white/20 bg-white/10';
-
-  const winTone =
-    winCurrent < 0 ? 'text-red-300' :
-    winTotal > 0 && winCurrent > winTotal ? 'text-orange-300' :
-    winTotal > 0 && winCurrent >= winTotal ? 'text-amber-200' :
-    'text-white/75';
-
-  const hasMeta = showWinStat || isWin || isLose || hasBorrowed;
+  const hasMeta = isWin || isLose || hasBorrowed;
   const activeLevel = useMemo(
     () => scoreToEstateLevel(score, targetScore),
     [score, targetScore],
   );
+  const badgeTheme = isLose
+    ? LOSE_BADGE_THEME
+    : isWin
+      ? WIN_BADGE_THEME
+      : getLevelTheme(activeLevel);
+  const tier = Math.abs(activeLevel);
+
+  /* Panel is the tier frame: accent border + glow scale with |level|. */
+  const shellStyle: CSSProperties = {
+    borderColor: `${badgeTheme.accent}99`,
+    background: `linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, ${badgeTheme.deep}40 100%)`,
+    boxShadow: `0 4px 20px rgba(0, 0, 0, 0.35), 0 0 ${12 + tier * 4}px ${badgeTheme.glow}`,
+  };
 
   return (
     <div
       ref={shellRef}
-      className={`relative w-full overflow-visible rounded-xl border backdrop-blur-md shadow-lg transition-colors duration-300 ${shellClass}`}
+      className="relative w-full overflow-visible rounded-xl border-2 backdrop-blur-md transition-all duration-500"
+      style={shellStyle}
       aria-label="Score and goal progress"
     >
+      {/* Tier ornaments — crest along the top edge (badge covers center) + corner flourishes */}
+      <div className="pointer-events-none absolute inset-0 z-10" aria-hidden>
+        <CrestOrnament
+          tier={tier}
+          accent={badgeTheme.accent}
+          glow={badgeTheme.glow}
+          className="absolute inset-x-8 -top-1.5 h-3"
+        />
+        <CornerFlourish
+          tier={tier}
+          accent={badgeTheme.accent}
+          glow={badgeTheme.glow}
+          className="absolute -top-1 -left-1 h-6 w-6"
+        />
+        <CornerFlourish
+          tier={tier}
+          accent={badgeTheme.accent}
+          glow={badgeTheme.glow}
+          className="absolute -top-1 -right-1 h-6 w-6 -scale-x-100"
+        />
+        <CornerFlourish
+          tier={tier}
+          accent={badgeTheme.accent}
+          glow={badgeTheme.glow}
+          className="absolute -bottom-1 -left-1 h-6 w-6 -scale-y-100"
+        />
+        <CornerFlourish
+          tier={tier}
+          accent={badgeTheme.accent}
+          glow={badgeTheme.glow}
+          className="absolute -bottom-1 -right-1 h-6 w-6 -scale-100"
+        />
+      </div>
       <div
-        className={`absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 rounded-full border px-4 py-1 text-sm font-black uppercase tracking-wide shadow-lg backdrop-blur-sm sm:text-base sm:px-5 sm:py-1.5 ${levelBadgeClass(activeLevel, isWin, isLose)}`}
+        className="absolute top-0 left-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border px-4 py-1 text-sm font-black uppercase tracking-wide backdrop-blur-sm transition-all duration-500 sm:px-5 sm:py-1.5 sm:text-base"
+        style={levelBadgeStyle(badgeTheme, Math.abs(activeLevel))}
         aria-label={formatLevelBadgeLabel(activeLevel)}
       >
-        {formatLevelBadgeLabel(activeLevel)}
+        <span className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
+          {formatLevelBadgeLabel(activeLevel)}
+        </span>
+        <LevelTierPips level={activeLevel} theme={badgeTheme} />
       </div>
 
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
@@ -169,13 +244,6 @@ export default function TargetGoalDock({
           {hasBorrowed && (
             <span className="shrink-0 rounded-md border border-rose-400/50 bg-rose-500/25 px-1.5 py-0.5 text-[9px] uppercase text-rose-200">
               Borrow
-            </span>
-          )}
-
-          {showWinStat && (
-            <span className={`font-mono tabular-nums ${winTone}`}>
-              WIN {winCurrent}
-              <span className="text-white/30">/{winTotal}</span>
             </span>
           )}
 

@@ -1,0 +1,32 @@
+{
+  "defaultSettings": {
+    "currentWin": {
+      "number": 0
+    },
+    "win": {
+      "number": 5
+    },
+    "like": {
+      "number": 0,
+      "action": 0,
+      "amount": 1
+    },
+    "likeTarget": {
+      "number": 0,
+      "action": 0,
+      "amount": 1
+    },
+    "follow": {
+      "action": -1,
+      "amount": 1
+    },
+    "share": {
+      "action": -1,
+      "amount": 1
+    },
+    "join": {
+      "action": -1,
+      "amount": 1
+    }
+  }
+}

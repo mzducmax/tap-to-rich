@@ -4,8 +4,6 @@
  */
 
 import { hackerUrl } from '../key-0/config/hackerAssets';
-import { divineCrossbowUrl } from '../key-5/config/divineCrossbowAssets';
-import { footballUrl } from '../key-8/config/soccerBallAssets';
 import { trumpUrl } from '../key-9/config/trumpAssets';
 import { pigUrl } from '../key-10/config/pigBankAssets';
 import stormCloudUrl from '../key-7/assets/storm-cloud.png';
@@ -16,7 +14,7 @@ import {
   KEY_2_BOW,
   KEY_3_AVATAR_STRIKE,
   KEY_4_AVATAR_COIN,
-  KEY_5_AVATAR_BUBBLE,
+  KEY_5_MONEY_SPINNER,
   KEY_6_DICE_ROLL,
   KEY_7_VERTICAL_LIGHTNING,
   KEY_8_SOCCER_BALL,
@@ -38,10 +36,10 @@ const STATIC_VISUALS: Record<string, Omit<ActionQueueVisual, 'key'>> = {
   [KEY_2_PLINKO]: { label: 'Plinko', emoji: '🎯' },
   [KEY_3_AVATAR_STRIKE]: { label: 'Strike', emoji: '🎯' },
   [KEY_4_AVATAR_COIN]: { label: 'Coin', emoji: '🪙' },
-  [KEY_5_AVATAR_BUBBLE]: { label: 'Crossbow', emoji: '✨', imageUrl: divineCrossbowUrl },
+  [KEY_5_MONEY_SPINNER]: { label: 'Spinner', emoji: '🎡' },
   [KEY_6_DICE_ROLL]: { label: 'Dice', emoji: '🎲' },
   [KEY_7_VERTICAL_LIGHTNING]: { label: 'Lightning', emoji: '⚡', imageUrl: stormCloudUrl },
-  [KEY_8_SOCCER_BALL]: { label: 'Soccer', emoji: '⚽', imageUrl: footballUrl },
+  [KEY_8_SOCCER_BALL]: { label: 'Knife', emoji: '🔪' },
   [KEY_9_TRUMP_SPAWN]: { label: 'Trump', emoji: '💵', imageUrl: trumpUrl },
   [KEY_P_PIG_BANK]: { label: 'Pig bank', emoji: '🐷', imageUrl: pigUrl },
   [KEY_O_BUTTERFLY]: { label: 'Gold nugget', emoji: '🪙' },

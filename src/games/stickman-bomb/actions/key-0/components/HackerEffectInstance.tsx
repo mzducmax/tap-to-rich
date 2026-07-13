@@ -35,6 +35,8 @@ type HackerEffectInstanceProps = {
   balancePanelRef: React.RefObject<HTMLElement | null>;
   balanceDockRef: React.RefObject<HTMLElement | null>;
   getBalance: () => number;
+  /** Total money to drain over the sequence — defaults to `HACKER_PENALTY`. */
+  drainTotal?: number;
   onDrain: (amount: number) => void;
   onComplete: () => void;
 };
@@ -48,25 +50,28 @@ function HackerEffectInstanceInner({
   balancePanelRef,
   balanceDockRef,
   getBalance,
+  drainTotal,
   onDrain,
   onComplete,
 }: HackerEffectInstanceProps) {
   const onDrainRef = useRef(onDrain);
   const onCompleteRef = useRef(onComplete);
   const getBalanceRef = useRef(getBalance);
+  const drainTotalRef = useRef(drainTotal);
   const sequenceIdRef = useRef(0);
   const [alertVisible, setAlertVisible] = useState(false);
 
   onDrainRef.current = onDrain;
   onCompleteRef.current = onComplete;
   getBalanceRef.current = getBalance;
+  drainTotalRef.current = drainTotal;
 
   useLayoutEffect(() => {
     const sequenceId = ++sequenceIdRef.current;
     let cancelled = false;
     let finished = false;
     let started = false;
-    let watchdogId: ReturnType<typeof window.setTimeout> | null = null;
+    let watchdogId: any = null;
 
     const clearWatchdog = () => {
       if (watchdogId !== null) {
@@ -147,7 +152,11 @@ function HackerEffectInstanceInner({
         setAlertVisible(true);
 
         // Drain money right over the live game while the rain runs.
-        await runHackerMoneyDrain(HACKER_PENALTY, (chunk) => {
+        const totalToDrain =
+          drainTotalRef.current != null && Number.isFinite(drainTotalRef.current)
+            ? Math.abs(drainTotalRef.current)
+            : HACKER_PENALTY;
+        await runHackerMoneyDrain(totalToDrain, (chunk) => {
           if (shouldAbort()) return;
           onDrainRef.current(chunk);
         });

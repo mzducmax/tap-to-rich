@@ -40,9 +40,13 @@ const SheepUnit = memo(function SheepUnit({ sheep, direction, registerSheepRef }
         ['--cross-ms' as string]: `${sheep.durationMs}ms`,
         ['--cross-delay' as string]: `${sheep.delayMs}ms`,
         ['--bob-ms' as string]: `${sheep.bobDurationMs}ms`,
+        ['--smoke-len' as string]: `${2.4 + sheep.scale * 2.4}rem`,
         ['--shadow-scale' as string]: String(0.85 + sheep.scale * 0.25),
       }}
     >
+      <span className="sheep-unit-smoke-trail" aria-hidden>
+        <span className="sheep-smoke-ground" />
+      </span>
       <span className="sheep-unit-shadow" aria-hidden />
       <span className="sheep-unit-body" style={{ fontSize }}>
         🐑

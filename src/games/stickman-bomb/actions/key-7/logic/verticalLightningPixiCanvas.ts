@@ -25,11 +25,14 @@ export type VerticalBoltSpawn = {
   tipX: number;
   tipY: number;
   durationMs: number;
+  /** Storm that spawned this bolt — used to scope cancellation on unmount. */
+  ownerId?: number;
   onStrike?: () => void;
 };
 
 type ActiveBolt = VerticalBoltDrawState & {
   id: number;
+  ownerId?: number;
   onStrike?: () => void;
   resolve: () => void;
 };
@@ -207,17 +210,36 @@ export function unmountVerticalLightningCanvas(): void {
   logicalHeight = 0;
 }
 
-export function cancelAllVerticalBolts(): void {
-  for (const bolt of activeBolts) {
-    bolt.resolve();
-  }
-  activeBolts.length = 0;
+function clearOffscreen(): void {
   if (offscreenCtx && logicalWidth > 0 && logicalHeight > 0) {
     offscreenCtx.setTransform(bufferDpr, 0, 0, bufferDpr, 0, 0);
     offscreenCtx.clearRect(0, 0, logicalWidth, logicalHeight);
     uploadOffscreenTexture();
     app?.render();
   }
+}
+
+export function cancelAllVerticalBolts(): void {
+  for (const bolt of activeBolts) {
+    bolt.resolve();
+  }
+  activeBolts.length = 0;
+  clearOffscreen();
+  syncTickerRegistration();
+}
+
+/**
+ * Cancel only the bolts spawned by a single storm. Used when one burst unmounts
+ * so it no longer wipes the bolts of other bursts still playing (rapid presses).
+ */
+export function cancelVerticalBoltsByOwner(ownerId: number): void {
+  for (let i = activeBolts.length - 1; i >= 0; i--) {
+    const bolt = activeBolts[i]!;
+    if (bolt.ownerId !== ownerId) continue;
+    bolt.resolve();
+    activeBolts.splice(i, 1);
+  }
+  if (activeBolts.length === 0) clearOffscreen();
   syncTickerRegistration();
 }
 
@@ -237,6 +259,7 @@ export function spawnVerticalBolt(spec: VerticalBoltSpawn): Promise<void> {
     const startTime = performance.now();
     activeBolts.push({
       id,
+      ownerId: spec.ownerId,
       geometry,
       tipX: spec.tipX,
       tipY: spec.tipY,

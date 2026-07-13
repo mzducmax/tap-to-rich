@@ -3,6 +3,9 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
+/** Money subtracted from the balance on each missile impact (key i). */
+export const MISSILE_PENALTY = 20;
+
 /** React-side queue: how many missile sessions may run at once. */
 export const MISSILE_MAX_CONCURRENT = 8;
 /** Min gap between draining queued missiles — small so rapid taps fire fast. */
@@ -18,13 +21,20 @@ export const MISSILE_VOLLEY_STAGGER_MS = 130;
 /** Flight time from off-screen spawn to estate impact (slower = more dramatic). */
 export const MISSILE_FLIGHT_MS = 1500;
 /** Explosion lifetime after impact. */
-export const MISSILE_EXPLODE_MS = 680;
+export const MISSILE_EXPLODE_MS = 950;
+
+/**
+ * Where the boom peaks inside missile.mp3 (measured from the waveform).
+ * The clip starts (flight − boom) ms after the volley launches so the boom
+ * lands exactly on estate impact.
+ */
+export const MISSILE_SOUND_BOOM_MS = 1380;
 
 /** Rocket body size (logical px). */
 export const MISSILE_LENGTH = 64;
 export const MISSILE_WIDTH = 22;
 /** Peak explosion radius (logical px). */
-export const MISSILE_EXPLOSION_RADIUS = 150;
+export const MISSILE_EXPLOSION_RADIUS = 230;
 
 /** Smoke trail tuning. */
 export const MISSILE_SMOKE_LIFE_MS = 1000;

@@ -18,7 +18,7 @@ import type { SheepBonusFloat, SheepHitEffect, SheepHitOutcome } from '../types/
 
 export type { SheepBonusFloat, SheepHitEffect, SheepHitOutcome } from '../types/sheepTypes';
 
-export function useSheepHerd(active: boolean) {
+export function useSheepHerd(active: boolean, autoSpawn = true) {
   const [phase, setPhase] = useState<SheepPhase>('idle');
   const [waveId, setWaveId] = useState(0);
   const [waveDirection, setWaveDirection] = useState<SheepDirection>('ltr');
@@ -93,7 +93,7 @@ export function useSheepHerd(active: boolean) {
       pausedAtRef.current = null;
     }
 
-    scheduleAutoSpawn();
+    if (autoSpawn) scheduleAutoSpawn();
 
     const tick = () => {
       if (crossingUntilRef.current > 0 && Date.now() >= crossingUntilRef.current) {
@@ -109,7 +109,7 @@ export function useSheepHerd(active: boolean) {
       cancelAutoSpawnRef.current?.();
       cancelAutoSpawnRef.current = null;
     };
-  }, [active, scheduleAutoSpawn]);
+  }, [active, autoSpawn, scheduleAutoSpawn]);
 
   const registerSheepRef = useCallback((id: number, node: HTMLDivElement | null) => {
     if (node) sheepRefs.current.set(id, node);

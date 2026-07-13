@@ -5,7 +5,6 @@
 
 import { useCallback } from 'react';
 import { useQueuedSpawner } from '../../shared/useQueuedSpawner';
-import { randomAttackAngle } from '../../shared/attackGeometry';
 import { cancelAllSoccerBallKicks } from '../logic/soccerBallCanvas';
 import {
   SOCCER_BALL_MAX_CONCURRENT,
@@ -14,18 +13,14 @@ import {
 
 export type ActiveSoccerBallKick = {
   id: number;
-  angle: number;
 };
 
 export function useSoccerBallKick(active: boolean) {
-  const { items, enqueue, complete, reset } = useQueuedSpawner<
-    ActiveSoccerBallKick,
-    { angle: number }
-  >({
+  const { items, enqueue, complete, reset } = useQueuedSpawner<ActiveSoccerBallKick>({
     active,
     maxConcurrent: SOCCER_BALL_MAX_CONCURRENT,
     cooldownMs: SOCCER_BALL_SPAWN_COOLDOWN_MS,
-    createPayload: () => ({ angle: randomAttackAngle() }),
+    createPayload: () => ({}),
   });
 
   const resetCycle = useCallback(() => {

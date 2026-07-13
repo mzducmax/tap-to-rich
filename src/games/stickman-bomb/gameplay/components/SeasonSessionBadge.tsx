@@ -1,5 +1,5 @@
 /**
- * Top-left avatars — one chip per active gameplay season.
+ * Top-right avatars (below the Settings button) — one chip per active gameplay season.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -117,12 +117,13 @@ export function SeasonSessionBadge({
 export const seasonSessionBadgeStyles = `
   .season-session-avatars {
     position: absolute;
-    top: 16px;
-    left: 16px;
+    top: 64px;
+    right: 16px;
     z-index: 60;
     pointer-events: none;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
   }
 

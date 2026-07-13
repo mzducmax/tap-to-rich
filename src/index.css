@@ -43,6 +43,67 @@
   animation: cloud-drift 18s infinite linear;
 }
 
+/* ===== Only Click — login screen animations ===== */
+@keyframes oc-rays-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes oc-coin-fall {
+  0% { transform: translateY(-15vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(115vh) rotate(540deg); opacity: 0; }
+}
+
+@keyframes oc-coin-spin {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+@keyframes oc-hammer-bounce {
+  0%, 100% { transform: rotate(-8deg) translateY(0); }
+  45% { transform: rotate(18deg) translateY(-6px); }
+  60% { transform: rotate(22deg) translateY(2px); }
+}
+
+@keyframes oc-impact {
+  0%, 55% { transform: scale(0.2); opacity: 0; }
+  62% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes oc-shine-sweep {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  100% { transform: translateX(220%) skewX(-20deg); }
+}
+
+@keyframes oc-float-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes oc-title-pop {
+  0% { transform: scale(0.6) rotate(-6deg); opacity: 0; }
+  70% { transform: scale(1.08) rotate(2deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.oc-rays-spin { animation: oc-rays-spin 60s infinite linear; }
+.oc-coin-spin { animation: oc-coin-spin 2.5s infinite linear; }
+.oc-hammer-bounce { animation: oc-hammer-bounce 1.4s infinite ease-in-out; transform-origin: 70% 80%; }
+.oc-impact { animation: oc-impact 1.4s infinite ease-out; }
+.oc-float-bob { animation: oc-float-bob 3.5s infinite ease-in-out; }
+.oc-title-pop { animation: oc-title-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.oc-shine-sweep { animation: oc-shine-sweep 3.2s infinite ease-in-out; }
+
+.oc-text-gold {
+  background: linear-gradient(180deg, #fff7d6 0%, #ffd24a 40%, #ff9b1e 75%, #f97316 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 /* Glassmorphism utility card effects */
 .glass {
   background: rgba(15, 15, 15, 0.45);

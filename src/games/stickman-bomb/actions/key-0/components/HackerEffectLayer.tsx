@@ -25,6 +25,8 @@ type HackerEffectLayerProps = {
   balancePanelRef: React.RefObject<HTMLElement | null>;
   balanceDockRef: React.RefObject<HTMLElement | null>;
   getBalance: () => number;
+  /** Total money to drain over the sequence — defaults to `HACKER_PENALTY`. */
+  drainTotal?: number;
   onDrain: (amount: number) => void;
   onComplete: (effectId: number) => void;
 };
@@ -38,6 +40,7 @@ export function HackerEffectLayer({
   balancePanelRef,
   balanceDockRef,
   getBalance,
+  drainTotal,
   onDrain,
   onComplete,
 }: HackerEffectLayerProps) {
@@ -129,6 +132,7 @@ export function HackerEffectLayer({
             balancePanelRef={balancePanelRef}
             balanceDockRef={balanceDockRef}
             getBalance={getBalance}
+            drainTotal={drainTotal}
             onDrain={onDrain}
             onComplete={() => onComplete(effect.id)}
           />

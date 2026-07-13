@@ -10,6 +10,7 @@ import {
   subscribeActionSpawnQueue,
 } from './actionSpawnQueueStore';
 import { getActionQueueVisual } from './actionQueueVisuals';
+import { KEY_8_SOCCER_BALL } from '../types';
 
 type ActionSpawnQueueDockProps = {
   avatarUrl?: string;
@@ -51,9 +52,11 @@ const QueueAvatar = memo(function QueueAvatar({
           {visual.emoji}
         </span>
       )}
-      <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-black/80 px-0.5 text-[8px] font-black tabular-nums text-white/90">
-        {actionKey}
-      </span>
+      {actionKey === KEY_8_SOCCER_BALL && (
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-black/80 px-0.5 text-[8px] font-black tabular-nums text-white/90">
+          {actionKey}
+        </span>
+      )}
     </div>
   );
 });

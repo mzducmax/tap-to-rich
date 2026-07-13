@@ -25,8 +25,24 @@ export {
   GAME_LAYER_Z,
 } from './config/gameLayers';
 export { gamePausedStyles } from './config/pauseStyles';
-export { setGameplayPaused, resetGameplayPauseClock } from './logic/gameplayPause';
 export {
+  setGameplayPaused,
+  resetGameplayPauseClock,
+  scheduleWhenGameplayActive,
+} from './logic/gameplayPause';
+export {
+  loadAutoHerdSpawn,
+  saveAutoHerdSpawn,
+  clampHerdAutoSpawnGapSec,
+  loadHerdAutoSpawnGapSec,
+  saveHerdAutoSpawnGapSec,
+  MIN_HERD_AUTO_SPAWN_GAP_SEC,
+  MAX_HERD_AUTO_SPAWN_GAP_SEC,
+} from './config/herdAutoSpawnConfig';
+export {
+  AUTO_HAMMER_INTERVAL_MS,
+  loadAutoHammer,
+  saveAutoHammer,
   clampHammerEstateReward,
   getExpandedHitRect,
   HAMMER_ESTATE_REWARD,

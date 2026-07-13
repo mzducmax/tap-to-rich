@@ -19,7 +19,7 @@ function resolveAppIcon() {
   }
   if (isDev) {
     console.warn(
-      '[Stack Box] Taskbar icon missing. Run: npm run icons  (needs build/icon.ico)',
+      '[Only Click] Taskbar icon missing. Run: npm run icons  (needs build/icon.ico)',
     );
   }
   return undefined;
@@ -58,7 +58,7 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#020617',
-    title: 'Stack Box',
+    title: 'Only Click',
     icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -92,7 +92,7 @@ function createWindow() {
 }
 
 if (process.platform === 'win32') {
-  app.setAppUserModelId('pro.zonee.stack-box');
+  app.setAppUserModelId('pro.zonee.only-click');
 }
 
 app.whenReady().then(() => {

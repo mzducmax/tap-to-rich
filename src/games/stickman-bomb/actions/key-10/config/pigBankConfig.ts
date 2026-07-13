@@ -3,7 +3,7 @@
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
-export const PIG_BANK_REWARD = 1000;
+export const PIG_BANK_REWARD = 10000;
 export const PIG_BANK_REWARD_LABEL = `+$${PIG_BANK_REWARD.toLocaleString('en-US')}`;
 export const PIG_BANK_SPAWN_COOLDOWN_MS = 3200;
 export const PIG_BANK_MAX_CONCURRENT = 1;
@@ -28,6 +28,11 @@ export const MONEY_VIDEO_START_DELAY_MS = PIG_RAIN_START_DELAY_MS;
 // How long the "rain" phase lasts before the reward fires — long enough for the
 // downpour to fill the screen and the pile to settle.
 export const MONEY_VIDEO_FILL_MS = 3800;
+/**
+ * Money is deducted gradually (stopwatch-style) over this long, spanning the
+ * money-rain window rather than in a single jump.
+ */
+export const PIG_BANK_REWARD_RAMP_MS = MONEY_VIDEO_FILL_MS;
 // Fraction of the layer height the video covers (anchored to the bottom).
 export const MONEY_VIDEO_COVER_RATIO = 0.62;
 

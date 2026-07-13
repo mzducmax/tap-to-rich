@@ -29,7 +29,17 @@ export default class MessageRouter {
     switch (msg.type) {
       case 'gift': {
         const gift = msg as NetworkMessage & Record<string, unknown>;
+        console.log('[WS] gift', {
+          nickname: gift.nickname ?? gift.uniqueId,
+          giftName: gift.giftName,
+          giftId: gift.giftId,
+          giftType: gift.giftType,
+          repeatCount: gift.repeatCount,
+          repeatEnd: gift.repeatEnd,
+          raw: gift,
+        });
         if (this.shouldProcessGift && !this.shouldProcessGift(gift)) {
+          console.log('[WS] gift bị bỏ qua bởi shouldProcessGift', gift.giftId);
           break;
         }
         this.giftProcessor.handleGift(gift);

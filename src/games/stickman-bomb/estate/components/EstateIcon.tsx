@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { motion, type AnimationControls } from 'motion/react';
+import { motion, useAnimation } from 'motion/react';
 import { formatLevelLabel } from '../../background/config/levelConfig';
 import {
   estateNeedsSeatUp,
@@ -15,6 +15,7 @@ import {
 import type { EstateImageOverrides } from '../config/estateImageSettings';
 import { estateIconStyles } from '../styles/estateStyles';
 import { EstateSmokeBurst } from './EstateSmokeBurst';
+import { StaticStyle } from '../../../../components/StaticStyle';
 
 const REVEAL_MS = 360;
 const SMOKE_DURATION_MS = 520;
@@ -27,7 +28,7 @@ type EstateIconProps = {
   levelOverride?: EstateLevel;
   estateImageOverrides?: EstateImageOverrides;
   targetRef: RefObject<HTMLDivElement | null>;
-  hitControls: AnimationControls;
+  hitControls: ReturnType<typeof useAnimation>;
   explosionOverlay?: ReactNode;
 };
 
@@ -88,7 +89,7 @@ export function EstateIcon({
 
   return (
     <>
-      <style>{estateIconStyles}</style>
+      <StaticStyle css={estateIconStyles} />
       <motion.div
         ref={targetRef}
         id="estate-target"

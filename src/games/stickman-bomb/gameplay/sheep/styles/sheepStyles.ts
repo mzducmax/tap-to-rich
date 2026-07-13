@@ -46,6 +46,8 @@ export const sheepStyles = `
   }
 
   .sheep-unit-body {
+    position: relative;
+    z-index: 1;
     display: block;
     animation: sheep-bobble-ltr var(--bob-ms, 520ms) ease-in-out infinite;
     transform: scaleX(-1);
@@ -55,6 +57,146 @@ export const sheepStyles = `
   .sheep-unit-cross-rtl .sheep-unit-body {
     animation-name: sheep-bobble-rtl;
     transform: scaleX(1);
+  }
+
+  .sheep-unit-smoke-trail {
+    position: absolute;
+    bottom: -1px;
+    width: var(--smoke-len, 4.2rem);
+    height: 0.62rem;
+    pointer-events: none;
+    z-index: 0;
+    overflow: visible;
+  }
+
+  .sheep-unit-cross:not(.sheep-unit-cross-rtl) .sheep-unit-smoke-trail {
+    left: 58%;
+    transform: translateX(-100%);
+  }
+
+  .sheep-unit-cross-rtl .sheep-unit-smoke-trail {
+    left: 42%;
+    transform: translateX(0);
+  }
+
+  .sheep-smoke-ground {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    filter: blur(4px);
+    will-change: transform, opacity;
+    animation: sheep-smoke-ground var(--bob-ms, 520ms) ease-in-out infinite;
+  }
+
+  .sheep-unit-cross:not(.sheep-unit-cross-rtl) .sheep-smoke-ground {
+    transform-origin: 100% 50%;
+    background: linear-gradient(
+      to left,
+      transparent 0%,
+      rgba(205, 205, 205, 0.14) 18%,
+      rgba(235, 235, 235, 0.62) 48%,
+      rgba(245, 245, 245, 0.82) 72%,
+      rgba(225, 225, 225, 0.55) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-cross-rtl .sheep-smoke-ground {
+    transform-origin: 0% 50%;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(205, 205, 205, 0.14) 18%,
+      rgba(235, 235, 235, 0.62) 48%,
+      rgba(245, 245, 245, 0.82) 72%,
+      rgba(225, 225, 225, 0.55) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-rear .sheep-unit-smoke-trail {
+    height: 0.48rem;
+    opacity: 0.72;
+  }
+
+  .sheep-unit-gold .sheep-smoke-ground {
+    filter: blur(4px) saturate(1.2);
+  }
+
+  .sheep-unit-gold.sheep-unit-cross:not(.sheep-unit-cross-rtl) .sheep-smoke-ground {
+    background: linear-gradient(
+      to left,
+      transparent 0%,
+      rgba(234, 179, 8, 0.12) 18%,
+      rgba(254, 240, 138, 0.55) 48%,
+      rgba(253, 224, 71, 0.78) 72%,
+      rgba(234, 179, 8, 0.45) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-gold.sheep-unit-cross-rtl .sheep-smoke-ground {
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(234, 179, 8, 0.12) 18%,
+      rgba(254, 240, 138, 0.55) 48%,
+      rgba(253, 224, 71, 0.78) 72%,
+      rgba(234, 179, 8, 0.45) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-pink.sheep-unit-cross:not(.sheep-unit-cross-rtl) .sheep-smoke-ground {
+    background: linear-gradient(
+      to left,
+      transparent 0%,
+      rgba(236, 72, 153, 0.12) 18%,
+      rgba(251, 207, 232, 0.55) 48%,
+      rgba(244, 114, 182, 0.76) 72%,
+      rgba(236, 72, 153, 0.42) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-pink.sheep-unit-cross-rtl .sheep-smoke-ground {
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(236, 72, 153, 0.12) 18%,
+      rgba(251, 207, 232, 0.55) 48%,
+      rgba(244, 114, 182, 0.76) 72%,
+      rgba(236, 72, 153, 0.42) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-black.sheep-unit-cross:not(.sheep-unit-cross-rtl) .sheep-smoke-ground {
+    background: linear-gradient(
+      to left,
+      transparent 0%,
+      rgba(51, 65, 85, 0.16) 18%,
+      rgba(100, 116, 139, 0.52) 48%,
+      rgba(71, 85, 105, 0.72) 72%,
+      rgba(51, 65, 85, 0.42) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-black.sheep-unit-cross-rtl .sheep-smoke-ground {
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(51, 65, 85, 0.16) 18%,
+      rgba(100, 116, 139, 0.52) 48%,
+      rgba(71, 85, 105, 0.72) 72%,
+      rgba(51, 65, 85, 0.42) 88%,
+      transparent 100%
+    );
+  }
+
+  .sheep-unit-hit .sheep-unit-smoke-trail {
+    display: none;
   }
 
   .sheep-unit-shadow {
@@ -68,6 +210,7 @@ export const sheepStyles = `
     border-radius: 50%;
     filter: blur(2px);
     transform: scaleX(var(--shadow-scale, 1));
+    z-index: 0;
   }
 
   .sheep-unit-rear {
@@ -193,6 +336,17 @@ export const sheepStyles = `
     }
     75% {
       transform: scaleX(1) translateY(-2px) rotate(-3deg);
+    }
+  }
+
+  @keyframes sheep-smoke-ground {
+    0%, 100% {
+      opacity: 0.55;
+      transform: scaleX(0.82) scaleY(0.9);
+    }
+    50% {
+      opacity: 0.92;
+      transform: scaleX(1.08) scaleY(1);
     }
   }
 

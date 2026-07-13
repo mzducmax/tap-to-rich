@@ -1,5 +1,5 @@
 /**
- * Single canvas compositor for the kicked soccer ball (key 8).
+ * Single canvas compositor for dropped knives (key 8).
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -67,7 +67,6 @@ export function SoccerBallLayer({
           <SoccerBallInstance
             key={kick.id}
             kickId={kick.id}
-            angleDeg={kick.angle}
             layerRef={layerRef}
             gameplayTargetRef={gameplayTargetRef}
             onEstateHit={onEstateHit}

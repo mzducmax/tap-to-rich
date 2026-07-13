@@ -32,11 +32,11 @@ import {
   EstateScoreFloat,
   SeasonSessionBadge,
   BORROW_MONEY_LOAN,
+  AUTO_HAMMER_INTERVAL_MS,
 } from './gameplay';
 import {
   BirdFlockLayer,
   BirdHitBurst,
-  BIRD_POOP_PENALTY,
   useBirdFlock,
 } from './gameplay/birds';
 import {
@@ -45,14 +45,16 @@ import {
   SheepHitBurst,
   scopeViewStyles,
   useSheepHerd,
+  SHEEP_WAVE_DURATION_MS,
 } from './gameplay/sheep';
 import {
   MoleField,
   MoleHitBurst,
   useMoleField,
+  MOLE_WAVE_DURATION_MS,
 } from './gameplay/moles';
 import {
-  DivineCrossbowLayer,
+  MoneySpinnerLayer,
   HackerEffectLayer,
   AvatarCoinLayer,
   AvatarStrikeLayer,
@@ -60,22 +62,33 @@ import {
   VerticalLightningLayer,
   SoccerBallLayer,
   TrumpSpawnLayer,
-  AVATAR_COIN_REWARD,
-  TRUMP_SPAWN_REWARD,
   BombSequence,
   PlinkoLayer,
   BOW_PENALTY,
-  SOCCER_BALL_PENALTY,
   CounterExplosion,
   ExplosionFlash,
   keyActions,
   randomAttackAngle,
   ActionSpawnQueueDock,
+  pushActionSpawnQueue,
   resetActionSpawnQueue,
   shiftActionSpawnQueue,
-  useDivineCrossbow,
+  KEY_0_HACKER,
+  KEY_1_BOMB,
+  KEY_2_PLINKO,
+  KEY_3_AVATAR_STRIKE,
+  KEY_4_AVATAR_COIN,
+  KEY_5_MONEY_SPINNER,
+  KEY_6_DICE_ROLL,
+  KEY_7_VERTICAL_LIGHTNING,
+  KEY_8_SOCCER_BALL,
+  KEY_9_TRUMP_SPAWN,
+  KEY_P_PIG_BANK,
+  KEY_O_BUTTERFLY,
+  KEY_I_MISSILE,
+  KEY_U_TOMATO,
+  useMoneySpinner,
   useHackerEffect,
-  HACKER_PENALTY,
   useAvatarCoin,
   useAvatarStrike,
   usePlinko,
@@ -87,22 +100,25 @@ import {
   useTrumpSpawn,
   PigBankLayer,
   usePigBank,
-  PIG_BANK_REWARD,
+  PIG_BANK_REWARD_RAMP_MS,
   ButterflyLayer,
   useButterfly,
-  BUTTERFLY_REWARD,
   MissileStrikeLayer,
   useMissileStrike,
+  TomatoLayer,
+  useTomato,
   useKeyActions,
+  getActionMoneyAmount,
   type AttackAngle,
   type KeyActionContext,
 } from './actions';
 import {
-  BOMB_PENALTY,
   type StickmanBombCanvasHandle,
   type StickmanBombCanvasProps,
 } from './types';
+import type { GameEffectId } from '../../networking/gameActionExecutor';
 import { EstateDisplay } from './estate';
+import { StaticStyle } from '../../components/StaticStyle';
 
 /**
  * Game-screen shake while the key-P money downpour is on screen. Transform-only
@@ -123,6 +139,31 @@ const moneyRainShakeStyles = `
   }
 `;
 
+/** Sheep herd + mouse swarm auto-spawn: the two waves take turns appearing
+ *  back-to-back, with this gap between one leaving and the next appearing. */
+export const HERD_AUTO_SPAWN_GAP_MS = 3_000;
+
+/**
+ * Network effect id → action-queue key shown in the right-edge spawn dock.
+ * Effects without an entry (birdFlock) spawn directly and never queue.
+ */
+const EFFECT_QUEUE_KEYS: Partial<Record<GameEffectId, string>> = {
+  hack: KEY_0_HACKER,
+  bomb: KEY_1_BOMB,
+  plinko: KEY_2_PLINKO,
+  grappleHeist: KEY_3_AVATAR_STRIKE,
+  moneyTrain: KEY_4_AVATAR_COIN,
+  moneySpinner: KEY_5_MONEY_SPINNER,
+  diceRoll: KEY_6_DICE_ROLL,
+  verticalLightning: KEY_7_VERTICAL_LIGHTNING,
+  soccerBall: KEY_8_SOCCER_BALL,
+  trumpSpawn: KEY_9_TRUMP_SPAWN,
+  pigBank: KEY_P_PIG_BANK,
+  goldNugget: KEY_O_BUTTERFLY,
+  missile: KEY_I_MISSILE,
+  tomato: KEY_U_TOMATO,
+};
+
 export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanBombCanvasProps>(
   (
     {
@@ -133,13 +174,17 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       targetScore,
       previewEstateLevel = null,
       estateImageOverrides,
+      actionMoneyOverrides,
       freezeSway = false,
-      counterDisplayStyle = 'stick',
+      counterDisplayStyle = 'classic',
       showCounter = true,
       weaponMode = 'hammer' as WeaponMode,
       weaponSwitchKey = 'Tab',
       onWeaponModeChange,
       hammerEstateReward,
+      autoHammer = false,
+      autoHerdSpawn = false,
+      herdAutoSpawnGapMs = HERD_AUTO_SPAWN_GAP_MS,
       avatarStrikeUrl,
       balancePanelRef,
       balanceDockRef,
@@ -148,6 +193,10 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
   ) => {
     const gameAreaRef = useRef<HTMLDivElement>(null);
     const cameraStageRef = useRef<HTMLDivElement>(null);
+    // Latest editable per-action money overrides — read inside effect handlers
+    // without re-binding their useCallbacks.
+    const actionMoneyOverridesRef = useRef(actionMoneyOverrides);
+    actionMoneyOverridesRef.current = actionMoneyOverrides;
     const attackIdRef = useRef(0);
     const [activeAttacks, setActiveAttacks] = useState<
       { id: number; angle: AttackAngle }[]
@@ -174,11 +223,12 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       applyBirdBonus,
       applyMoleBonus,
       applyDelta,
+      rampDelta,
       resetScore,
-    removePenaltyFloat,
-    emitStats,
-    showScoreFloat,
-  } = useGameplayScore({
+      removePenaltyFloat,
+      emitStats,
+      showScoreFloat,
+    } = useGameplayScore({
       isMuted,
       onStatsChange,
       shake: shakeEstate,
@@ -200,7 +250,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       removeHitEffect,
       resetCycle: resetSheepCycle,
       triggerWave: triggerSheepWave,
-    } = useSheepHerd(sheepActive);
+    } = useSheepHerd(sheepActive, false);
 
     const molesActive = !freezeSway;
     const {
@@ -225,6 +275,11 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetCycle: resetAvatarStrikeCycle,
     } = useAvatarStrike(avatarStrikeActive);
 
+    const handleAvatarStrike = useCallback(() => {
+      triggerAvatarStrike();
+      if (!isMuted) audioManager.playGrappleLaunch();
+    }, [triggerAvatarStrike, isMuted]);
+
     const avatarCoinActive = !freezeSway;
     const {
       activeCoins: avatarActiveCoins,
@@ -241,13 +296,31 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetCycle: resetPlinkoCycle,
     } = usePlinko(plinkoActive);
 
-    const divineCrossbowActive = !freezeSway;
+    const handlePlinko = useCallback(() => {
+      triggerPlinko();
+      if (!isMuted) audioManager.playPlinkoSpawn();
+    }, [triggerPlinko, isMuted]);
+
+    const moneySpinnerActive = !freezeSway;
     const {
-      activeSessions: divineCrossbowSessions,
-      triggerDivineCrossbow,
-      completeDivineCrossbow,
-      resetCycle: resetDivineCrossbowCycle,
-    } = useDivineCrossbow(divineCrossbowActive);
+      activeSpins: moneySpinnerSpins,
+      triggerMoneySpinner: triggerMoneySpinnerRaw,
+      completeMoneySpinner,
+      resetCycle: resetMoneySpinnerCycle,
+    } = useMoneySpinner(moneySpinnerActive);
+
+    const triggerMoneySpinner = useCallback(() => {
+      triggerMoneySpinnerRaw();
+      if (!isMuted) audioManager.playSpinnerStart();
+    }, [triggerMoneySpinnerRaw, isMuted]);
+
+    const handleMoneySpinnerComplete = useCallback(
+      (spinId: number) => {
+        completeMoneySpinner(spinId);
+        audioManager.stopSpinnerStart();
+      },
+      [completeMoneySpinner],
+    );
 
     const diceRollActive = !freezeSway;
     const {
@@ -305,6 +378,14 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetCycle: resetMissileCycle,
     } = useMissileStrike(missileActive);
 
+    const tomatoActive = !freezeSway;
+    const {
+      activeSpawns: activeTomatoSpawns,
+      triggerTomato,
+      completeTomato,
+      resetCycle: resetTomatoCycle,
+    } = useTomato(tomatoActive);
+
     const {
       activeEffects: activeHackerEffects,
       triggerHackerEffect,
@@ -324,9 +405,29 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       return triggerPigBank();
     }, [triggerPigBank]);
 
+    // Fired by PigBankInstance right as a queued [P] press actually spawns on
+    // screen (not when the key press was merely queued) — see PigBankInstance.
+    const handlePigBankStart = useCallback(() => {
+      if (!isMuted) audioManager.playSquidGame();
+    }, [isMuted]);
+
+    const handlePigBankComplete = useCallback(
+      (id: number) => {
+        audioManager.stopSquidGame();
+        completePigBank(id);
+      },
+      [completePigBank],
+    );
+
     const handleButterfly = useCallback(() => {
       return triggerButterfly();
     }, [triggerButterfly]);
+
+    const handleTomato = useCallback(() => {
+      const accepted = triggerTomato();
+      if (accepted && !isMuted) audioManager.playWhoosh();
+      return accepted;
+    }, [triggerTomato, isMuted]);
 
     const handleHackerEffect = useCallback(() => {
       return triggerHackerEffect();
@@ -335,7 +436,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     const handleHackerEffectComplete = useCallback(
       (effectId: number) => {
         completeHackerEffect(effectId);
-        showScoreFloat(-HACKER_PENALTY, 'key-0');
+        showScoreFloat(getActionMoneyAmount('hack', actionMoneyOverridesRef.current), 'key-0');
       },
       [completeHackerEffect, showScoreFloat],
     );
@@ -344,7 +445,11 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
 
     const triggerHackerDrain = useCallback(
       (amount: number) => {
-        applyDelta(-amount, 5, 0.07, {
+        // `amount` chunks are positive magnitudes; follow the configured sign so
+        // a positive Hack setting adds and the default negative one drains.
+        const hackAmount = getActionMoneyAmount('hack', actionMoneyOverridesRef.current);
+        const direction = hackAmount < 0 ? -1 : 1;
+        applyDelta(direction * amount, 5, 0.07, {
           source: 'key-0',
           showScoreFloat: false,
           showPenaltyFloat: false,
@@ -355,7 +460,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
 
     const birdsActive = !freezeSway;
     const handleBirdPoopHit = useCallback(() => {
-      applyDelta(-BIRD_POOP_PENALTY, 8, 0.35, {
+      applyDelta(getActionMoneyAmount('birdFlock', actionMoneyOverridesRef.current), 8, 0.35, {
         showPenaltyFloat: false,
         showScoreFloat: false,
       });
@@ -391,10 +496,12 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     }, []);
 
     const triggerExplosion = useCallback(() => {
-      applyDelta(-BOMB_PENALTY, 10, 0.5, { source: 'key-1' });
+      applyDelta(getActionMoneyAmount('bomb', actionMoneyOverridesRef.current), 10, 0.5, {
+        source: 'key-1',
+      });
       const burstId = ++explosionBurstSeqRef.current;
       setExplosionBurstId(burstId);
-      if (!isMuted) audioManager.playExplosion();
+      if (!isMuted) audioManager.playBomb();
       clearExplosionTimer();
       explosionTimerRef.current = setTimeout(() => {
         setExplosionBurstId(0);
@@ -422,8 +529,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           showScoreFloat: false,
         });
         if (!isMuted) {
-          if (reward >= 500) audioManager.playBuildChime();
-          else audioManager.playPop(18 + Math.min(reward, 120));
+          audioManager.playPlinkoCheer();
         }
       },
       [applyDelta, isMuted],
@@ -432,6 +538,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     const handlePlinkoComplete = useCallback(
       (roundId: number) => {
         completePlinko(roundId);
+        audioManager.stopPlinkoSpawn();
         const pending = plinkoPendingFloatRef.current;
         plinkoPendingFloatRef.current = null;
         if (pending != null && pending > 0) {
@@ -441,23 +548,37 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       [completePlinko, showScoreFloat],
     );
 
+    // Key [3] grappling hook hauled a $100 cash bundle out of the house.
     const triggerAvatarArrowHit = useCallback(() => {
-      applyDelta(-BOW_PENALTY, 6, 0.25, { source: 'key-3' });
-      if (!isMuted) audioManager.playGunShot();
+      applyDelta(getActionMoneyAmount('grapple', actionMoneyOverridesRef.current), 12, 0.4, {
+        source: 'key-3',
+      });
+      if (!isMuted) audioManager.playWrongSound();
     }, [applyDelta, isMuted]);
 
     const triggerAvatarCoinHit = useCallback(() => {
-      applyDelta(AVATAR_COIN_REWARD, 5, 0.2, { source: 'key-4', showScoreFloat: false });
+      applyDelta(getActionMoneyAmount('moneyTrain', actionMoneyOverridesRef.current), 5, 0.2, {
+        source: 'key-4',
+        showScoreFloat: false,
+      });
     }, [applyDelta]);
 
     const triggerAvatarCoinShowerStart = useCallback(() => {
       if (!isMuted) audioManager.playTrainSound();
     }, [isMuted]);
 
-    const triggerDivineCrossbowHit = useCallback(() => {
-      applyDelta(-BOW_PENALTY, 6, 0.25, { source: 'key-5' });
-      if (!isMuted) audioManager.playGunShot();
-    }, [applyDelta, isMuted]);
+    // Key [5] money spinner settled — credit (or dock) the landed tier.
+    const triggerMoneySpinnerWin = useCallback(
+      (amount: number) => {
+        const shakeIntensity = Math.min(28, 8 + Math.log10(Math.abs(amount) + 1) * 6);
+        applyDelta(amount, shakeIntensity, 0.35, { source: 'key-5' });
+        if (!isMuted) {
+          if (amount < 0) audioManager.playWrongSound();
+          else audioManager.playGetCoin();
+        }
+      },
+      [applyDelta, isMuted],
+    );
 
     const triggerDiceLand = useCallback(
       (payload: DiceLandPayload) => {
@@ -478,36 +599,68 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     }, [applyDelta, isMuted]);
 
     const triggerSoccerBallHit = useCallback(() => {
-      applyDelta(-SOCCER_BALL_PENALTY, 8, 0.32, { source: 'key-8' });
-      if (!isMuted) audioManager.playGunShot();
-    }, [applyDelta, isMuted]);
+      applyDelta(getActionMoneyAmount('knife', actionMoneyOverridesRef.current), 8, 0.32, {
+        source: 'key-8',
+      });
+    }, [applyDelta]);
 
     const triggerTrumpReward = useCallback(() => {
-      applyDelta(TRUMP_SPAWN_REWARD, 18, 0.58, { source: 'key-9' });
+      applyDelta(getActionMoneyAmount('trump', actionMoneyOverridesRef.current), 18, 0.58, {
+        source: 'key-9',
+      });
       if (!isMuted) audioManager.playTrumpFanfare();
     }, [applyDelta, isMuted]);
 
-    const triggerPigBankReward = useCallback(() => {
-      applyDelta(PIG_BANK_REWARD, 14, 0.48, { source: 'key-p' });
-      if (!isMuted) audioManager.playBuildChime();
-    }, [applyDelta, isMuted]);
+    // When the money-rain effect starts (a while after [P] is pressed), begin
+    // adding money gradually, stopwatch-style, over the rain window.
+    const handlePigBankRainChange = useCallback(
+      (active: boolean) => {
+        setMoneyRainShake(active);
+        if (!active) return;
+        rampDelta(
+          getActionMoneyAmount('pigBank', actionMoneyOverridesRef.current),
+          PIG_BANK_REWARD_RAMP_MS,
+          14,
+          0.48,
+          {
+            source: 'key-p',
+            floatAtEnd: true,
+          },
+        );
+        if (!isMuted) audioManager.playBuildChime();
+      },
+      [rampDelta, isMuted],
+    );
 
     const triggerButterflyReward = useCallback(() => {
-      applyDelta(BUTTERFLY_REWARD, 7, 0.28, { source: 'key-11' });
-      if (!isMuted) audioManager.playBuildChime();
+      applyDelta(getActionMoneyAmount('goldNugget', actionMoneyOverridesRef.current), 7, 0.28, {
+        source: 'key-11',
+      });
+      if (!isMuted) audioManager.playGetCoin();
     }, [applyDelta, isMuted]);
 
     const triggerMissileImpact = useCallback(() => {
-      applyDelta(-BOW_PENALTY, 16, 0.55, { source: 'key-i' });
+      applyDelta(getActionMoneyAmount('missile', actionMoneyOverridesRef.current), 16, 0.55, {
+        source: 'key-i',
+      });
       if (!isMuted) audioManager.playExplosion();
     }, [applyDelta, isMuted]);
 
-    const resetGame = useCallback(() => {
+    const triggerTomatoReward = useCallback(() => {
+      applyDelta(getActionMoneyAmount('tomato', actionMoneyOverridesRef.current), 10, 0.32, {
+        source: 'key-u',
+      });
+      if (!isMuted) audioManager.playSplat();
+    }, [applyDelta, isMuted]);
+
+    // Clears every in-flight action effect (birds, sheep, moles, projectiles, …)
+    // without touching score — used both by a full reset and by "game over"
+    // (defeat) so nothing keeps animating/spawning behind the modal.
+    const clearActiveEffects = useCallback(() => {
       clearExplosionTimer();
       setActiveAttacks([]);
       setExplosionBurstId(0);
       resetGameplayPauseClock();
-      resetScore();
       resetSheepCycle();
       resetBirdCycle();
       resetMoleCycle();
@@ -515,7 +668,9 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetAvatarCoinCycle();
       resetPlinkoCycle();
       plinkoPendingFloatRef.current = null;
-      resetDivineCrossbowCycle();
+      audioManager.stopPlinkoSpawn();
+      resetMoneySpinnerCycle();
+      audioManager.stopSpinnerStart();
       resetDiceRollCycle();
       resetVerticalLightningCycle();
       resetSoccerBallCycle();
@@ -523,13 +678,12 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetPigBankCycle();
       resetButterflyCycle();
       resetMissileCycle();
+      resetTomatoCycle();
       resetHackerEffectCycle();
       resetActionSpawnQueue();
-      onGameReset();
     }, [
       clearExplosionTimer,
-      onGameReset,
-      resetDivineCrossbowCycle,
+      resetMoneySpinnerCycle,
       resetDiceRollCycle,
       resetVerticalLightningCycle,
       resetSoccerBallCycle,
@@ -537,15 +691,21 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       resetPigBankCycle,
       resetButterflyCycle,
       resetMissileCycle,
+      resetTomatoCycle,
       resetHackerEffectCycle,
       resetAvatarCoinCycle,
       resetPlinkoCycle,
       resetAvatarStrikeCycle,
       resetBirdCycle,
       resetMoleCycle,
-      resetScore,
       resetSheepCycle,
     ]);
+
+    const resetGame = useCallback(() => {
+      clearActiveEffects();
+      resetScore();
+      onGameReset();
+    }, [clearActiveEffects, onGameReset, resetScore]);
 
     const handleHammerImpact = useCallback(
       ({
@@ -576,12 +736,52 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           return;
         }
 
-        if (molePhase === 'active') return;
-
         if (hitEstate) increment({ source: 'hammer' });
       },
-      [applyMoleBonus, increment, molePhase, tryHitMole],
+      [applyMoleBonus, increment, tryHitMole],
     );
+
+    // Auto-earn: while enabled (and the game is running) money accrues on a
+    // fixed cadence — no hammer swing, no shake, but the coin sound still plays.
+    useEffect(() => {
+      if (!autoHammer || freezeSway) return;
+      const timer = setInterval(() => {
+        increment({ source: 'hammer', silent: true });
+      }, AUTO_HAMMER_INTERVAL_MS);
+      return () => clearInterval(timer);
+    }, [autoHammer, freezeSway, increment]);
+
+    // Auto-spawn: the sheep herd and the mouse swarm take turns appearing
+    // back-to-back — sheep, then mouse, then sheep again. Each wave plays out
+    // its full on-screen lifetime, then after the configured gap the other wave
+    // appears, so the two are never visible at the same time. The gap comes from
+    // the settings panel; the effect re-arms whenever it changes. (Birds are
+    // unaffected — they only spawn on demand via key [W] / actionId 18.)
+    useEffect(() => {
+      if (!autoHerdSpawn || freezeSway) return;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let nextIsSheep = true;
+
+      const runWave = () => {
+        const durationMs = nextIsSheep ? SHEEP_WAVE_DURATION_MS : MOLE_WAVE_DURATION_MS;
+        (nextIsSheep ? triggerSheepWave : triggerMoleWave)();
+        nextIsSheep = !nextIsSheep;
+        timer = setTimeout(runWave, durationMs + herdAutoSpawnGapMs);
+      };
+
+      // Wait one gap before the first wave so editing the value in the settings
+      // panel doesn't spawn a wave on every keystroke.
+      timer = setTimeout(runWave, herdAutoSpawnGapMs);
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    }, [
+      autoHerdSpawn,
+      freezeSway,
+      herdAutoSpawnGapMs,
+      triggerMoleWave,
+      triggerSheepWave,
+    ]);
 
     const handleGunShot = useCallback(
       (aimX: number, aimY: number) => {
@@ -641,6 +841,8 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       return () => window.removeEventListener('keydown', onKeyDown);
     }, [freezeSway, isGunMode, isMuted, onWeaponModeChange, weaponSwitchKey]);
 
+    // Keyboard wave spawns for manual testing: Q = sheep, W = bird, E = mole.
+    // These run alongside the WSS-driven triggerActionEffect path below.
     useEffect(() => {
       if (freezeSway) return;
 
@@ -681,10 +883,10 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       () => ({
         triggerHackerEffect: handleHackerEffect,
         startBombing,
-        triggerPlinko,
-        triggerAvatarStrike,
+        triggerPlinko: handlePlinko,
+        triggerAvatarStrike: handleAvatarStrike,
         triggerAvatarCoin,
-        triggerDivineCrossbow,
+        triggerMoneySpinner,
         triggerDiceRoll,
         triggerVerticalLightning,
         triggerSoccerBallKick,
@@ -692,6 +894,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         triggerPigBank: handlePigBank,
         triggerButterfly: handleButterfly,
         triggerMissileStrike,
+        triggerTomato: handleTomato,
         paused: freezeSway,
         hackerEffectRunning: activeHackerEffects.length > 0,
         plinkoRunning: activePlinkoRounds.length > 0,
@@ -699,10 +902,10 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       [
         handleHackerEffect,
         startBombing,
-        triggerPlinko,
-        triggerDivineCrossbow,
+        handlePlinko,
+        triggerMoneySpinner,
         triggerAvatarCoin,
-        triggerAvatarStrike,
+        handleAvatarStrike,
         triggerDiceRoll,
         triggerVerticalLightning,
         triggerSoccerBallKick,
@@ -710,12 +913,15 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         handlePigBank,
         handleButterfly,
         triggerMissileStrike,
+        handleTomato,
         freezeSway,
         activeHackerEffects.length,
         activePlinkoRounds.length,
       ],
     );
 
+    // Numeric/letter keys (0-9, P, O, i, U) spawn game actions directly for
+    // manual testing, in addition to the WSS-driven triggerActionEffect path.
     useKeyActions(keyActions, keyActionContext);
 
     useEffect(() => {
@@ -730,11 +936,59 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       return true;
     }, [applyDelta, isMuted]);
 
+    // Network actions (game_execute_action) → the same triggers as the keyboard
+    // effects, dispatched by stable id (see ACTION_REGISTRY in gameActionExecutor).
+    // Every queued effect is pushed to the visual spawn-queue store first; the
+    // per-action useQueuedSpawner then shifts it when the spawn starts (or pops
+    // it if the enqueue is rejected), so the right-edge dock mirrors the backlog.
+    const triggerActionEffect = useCallback(
+      (effectId: GameEffectId) => {
+        const queueKey = EFFECT_QUEUE_KEYS[effectId];
+        if (queueKey) pushActionSpawnQueue(queueKey);
+        switch (effectId) {
+          case 'hack': return void handleHackerEffect();
+          case 'bomb': return void startBombing();
+          case 'plinko': return void handlePlinko();
+          case 'grappleHeist': return void handleAvatarStrike();
+          case 'moneyTrain': return void triggerAvatarCoin();
+          case 'moneySpinner': return void triggerMoneySpinner();
+          case 'diceRoll': return void triggerDiceRoll();
+          case 'verticalLightning': return void triggerVerticalLightning();
+          case 'soccerBall': return void triggerSoccerBallKick();
+          case 'trumpSpawn': return void handleTrumpSpawn();
+          case 'pigBank': return void handlePigBank();
+          case 'goldNugget': return void handleButterfly();
+          case 'missile': return void triggerMissileStrike();
+          case 'tomato': return void handleTomato();
+          case 'birdFlock': return void triggerBirdWave();
+          default: return;
+        }
+      },
+      [
+        handleHackerEffect,
+        startBombing,
+        handlePlinko,
+        handleAvatarStrike,
+        triggerAvatarCoin,
+        triggerMoneySpinner,
+        triggerDiceRoll,
+        triggerVerticalLightning,
+        triggerSoccerBallKick,
+        handleTrumpSpawn,
+        handlePigBank,
+        handleButterfly,
+        triggerMissileStrike,
+        handleTomato,
+        triggerBirdWave,
+      ],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
         placeBlock: increment,
         resetGame,
+        clearActiveEffects,
         destroyTopBoxes: (n: number) => {
           const amount = Math.max(1, Math.floor(n));
           applyDelta(-amount, Math.min(20, 3 + amount * 0.5), 0.2, {
@@ -753,6 +1007,7 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
         },
         triggerMoleWave: () => triggerMoleWave(),
         triggerBirdWave: () => triggerBirdWave(),
+        triggerActionEffect,
         triggerBorrowMoney,
         deductBalance: (amount: number) => {
           if (countRef.current < amount) return false;
@@ -762,9 +1017,11 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
       }),
       [
         applyDelta,
+        clearActiveEffects,
         increment,
         isMuted,
         resetGame,
+        triggerActionEffect,
         triggerBirdWave,
         triggerBorrowMoney,
         triggerMoleWave,
@@ -787,210 +1044,206 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
     return (
       <div
         ref={gameAreaRef}
-        className={`absolute inset-0 w-full h-full bg-transparent font-sans cursor-none isolate ${
-          isGunMode ? 'gun-scope-stage' : 'overflow-visible'
-        }${freezeSway ? ' game-paused' : ''}${
-          moneyRainShake ? ' money-rain-shake' : ''
-        }`}
+        className={`absolute inset-0 w-full h-full bg-transparent font-sans cursor-none isolate ${isGunMode ? 'gun-scope-stage' : 'overflow-visible'
+          }${freezeSway ? ' game-paused' : ''}${moneyRainShake ? ' money-rain-shake' : ''
+          }`}
       >
-        {isGunMode && <style>{scopeViewStyles}</style>}
-        <style>{gamePausedStyles}</style>
-        <style>{moneyRainShakeStyles}</style>
+        {isGunMode && <StaticStyle css={scopeViewStyles} />}
+        <StaticStyle css={gamePausedStyles} />
+        <StaticStyle css={moneyRainShakeStyles} />
 
         <div
           ref={cameraStageRef}
           className="trump-camera-stage"
           style={{ position: 'absolute', inset: 0, willChange: 'transform' }}
         >
-        {/* World — sheep, ambient (below counter) */}
-        <div
-          className={`${gameLayerClasses.world} ${
-            isGunMode ? 'scope-content-layer' : ''
-          }`}
-          style={gameLayerStyle('world')}
-        >
+          {/* World — sheep, ambient (below counter) */}
           <div
-            className={`absolute inset-0 pointer-events-none ${timeOverlayClass}`}
-            aria-hidden
-          />
-
-          {sheepPhase === 'crossing' && (
-            <SheepHerd
-              waveId={sheepWaveId}
-              direction={sheepWaveDirection}
-              registerSheepRef={registerSheepRef}
+            className={`${gameLayerClasses.world} ${isGunMode ? 'scope-content-layer' : ''
+              }`}
+            style={gameLayerStyle('world')}
+          >
+            <div
+              className={`absolute inset-0 pointer-events-none ${timeOverlayClass}`}
+              aria-hidden
             />
+
+            {sheepPhase === 'crossing' && (
+              <SheepHerd
+                waveId={sheepWaveId}
+                direction={sheepWaveDirection}
+                registerSheepRef={registerSheepRef}
+              />
+            )}
+
+            <div className="absolute bottom-0 w-full h-32 bg-linear-to-t from-green-900/15 to-transparent pointer-events-none" />
+          </div>
+
+          {/* Scope overlay — below counter so money stays bright */}
+          {isGunMode && (
+            <div className={gameLayerClasses.scope} style={gameLayerStyle('scope')}>
+              <SheepAimShoot
+                containerRef={gameAreaRef}
+                enabled={!freezeSway}
+                canShootSheep={isGunMode}
+                onFire={handleGunShot}
+              />
+            </div>
           )}
 
-          <div className="absolute bottom-0 w-full h-32 bg-linear-to-t from-green-900/15 to-transparent pointer-events-none" />
-        </div>
-
-        {/* Scope overlay — below counter so money stays bright */}
-        {isGunMode && (
-          <div className={gameLayerClasses.scope} style={gameLayerStyle('scope')}>
-            <SheepAimShoot
-              containerRef={gameAreaRef}
-              enabled={!freezeSway}
-              canShootSheep={isGunMode}
-              onFire={handleGunShot}
+          {/* Score (left) + estate target (center) */}
+          <div className={gameLayerClasses.counter} style={gameLayerStyle('counter')}>
+            {showCounter && (
+              <NumberDisplay
+                score={count}
+                counterTokens={counterTokens}
+                controls={counterControls}
+                freezeSway={freezeSway}
+                displayStyle={counterDisplayStyle as CounterDisplayStyle}
+                displayRef={counterRef}
+                sheepBonusFloats={sheepBonusFloats}
+                onSheepBonusFloatDone={removeBonusFloat}
+                birdBonusFloats={birdBonusFloats}
+                onBirdBonusFloatDone={removeBirdBonusFloat}
+                moleBonusFloats={moleBonusFloats}
+                onMoleBonusFloatDone={removeMoleBonusFloat}
+              />
+            )}
+            <EstateDisplay
+              score={count}
+              targetScore={targetScore}
+              previewEstateLevel={previewEstateLevel}
+              estateImageOverrides={estateImageOverrides}
+              freezeSway={freezeSway}
+              targetRef={estateTargetRef}
+              hitControls={estateHitControls}
+              explosionOverlay={<CounterExplosion burstId={explosionBurstId} />}
             />
           </div>
-        )}
 
-        {/* Score (left) + estate target (center) */}
-        <div className={gameLayerClasses.counter} style={gameLayerStyle('counter')}>
-          {showCounter && (
-            <NumberDisplay
-              score={count}
-              counterTokens={counterTokens}
-              controls={counterControls}
-              freezeSway={freezeSway}
-              displayStyle={counterDisplayStyle as CounterDisplayStyle}
-              displayRef={counterRef}
-              sheepBonusFloats={sheepBonusFloats}
-              onSheepBonusFloatDone={removeBonusFloat}
-              birdBonusFloats={birdBonusFloats}
-              onBirdBonusFloatDone={removeBirdBonusFloat}
-              moleBonusFloats={moleBonusFloats}
-              onMoleBonusFloatDone={removeMoleBonusFloat}
+          {/* Gameplay — hammer, stickman attacks (above counter) */}
+          <div className={gameLayerClasses.gameplay} style={gameLayerStyle('gameplay')}>
+            {molePhase === 'active' && (
+              <MoleField
+                spawns={moleSpawns}
+                visibility={moleVisibility}
+                registerMoleRef={registerMoleRef}
+              />
+            )}
+
+            {birdPhase === 'crossing' && (
+              <BirdFlockLayer
+                waveId={birdWaveId}
+                fallingPoops={birdFallingPoops}
+                splats={birdSplats}
+                poopPenaltyFloats={birdPoopPenaltyFloats}
+                onPoopPenaltyFloatDone={removeBirdPoopPenaltyFloat}
+                registerBirdRef={registerBirdRef}
+              />
+            )}
+
+            <HammerCursor
+              containerRef={gameAreaRef}
+              onHammerImpact={handleHammerImpact}
+              enabled={!freezeSway && !isGunMode}
+              visible
             />
-          )}
-          <EstateDisplay
-            score={count}
-            targetScore={targetScore}
-            previewEstateLevel={previewEstateLevel}
-            estateImageOverrides={estateImageOverrides}
-            freezeSway={freezeSway}
-            targetRef={estateTargetRef}
-            hitControls={estateHitControls}
-            explosionOverlay={<CounterExplosion burstId={explosionBurstId} />}
-          />
-        </div>
 
-        {/* Gameplay — hammer, stickman attacks (above counter) */}
-        <div className={gameLayerClasses.gameplay} style={gameLayerStyle('gameplay')}>
-          {molePhase === 'active' && (
-            <MoleField
-              spawns={moleSpawns}
-              visibility={moleVisibility}
-              registerMoleRef={registerMoleRef}
+            {birdHitEffects.map((effect) => (
+              <BirdHitBurst
+                key={`bird-hit-${effect.id}`}
+                x={effect.x}
+                y={effect.y}
+                onComplete={() => removeBirdHitEffect(effect.id)}
+              />
+            ))}
+
+            {sheepHitEffects.map((effect) => (
+              <SheepHitBurst
+                key={`sheep-hit-${effect.id}`}
+                x={effect.x}
+                y={effect.y}
+                variant={effect.variant}
+                onComplete={() => removeHitEffect(effect.id)}
+              />
+            ))}
+
+            {moleHitEffects.map((effect) => (
+              <MoleHitBurst
+                key={`mole-hit-${effect.id}`}
+                x={effect.x}
+                y={effect.y}
+                onComplete={() => removeMoleHitEffect(effect.id)}
+              />
+            ))}
+
+            {activeAttacks.map((attack) => (
+              <BombSequence
+                key={attack.id}
+                angle={attack.angle}
+                gameplayTargetRef={estateTargetRef}
+                onExplode={triggerExplosion}
+                onComplete={() => finishBombing(attack.id)}
+              />
+            ))}
+
+            <PlinkoLayer
+              rounds={activePlinkoRounds}
+              onLand={triggerPlinkoLand}
+              onComplete={handlePlinkoComplete}
             />
-          )}
 
-          {birdPhase === 'crossing' && (
-            <BirdFlockLayer
-              waveId={birdWaveId}
-              fallingPoops={birdFallingPoops}
-              splats={birdSplats}
-              poopPenaltyFloats={birdPoopPenaltyFloats}
-              onPoopPenaltyFloatDone={removeBirdPoopPenaltyFloat}
-              registerBirdRef={registerBirdRef}
-            />
-          )}
-
-          <HammerCursor
-            containerRef={gameAreaRef}
-            onHammerImpact={handleHammerImpact}
-            enabled={!freezeSway && !isGunMode}
-            visible
-            moleMode={molePhase === 'active'}
-          />
-
-          {birdHitEffects.map((effect) => (
-            <BirdHitBurst
-              key={`bird-hit-${effect.id}`}
-              x={effect.x}
-              y={effect.y}
-              onComplete={() => removeBirdHitEffect(effect.id)}
-            />
-          ))}
-
-          {sheepHitEffects.map((effect) => (
-            <SheepHitBurst
-              key={`sheep-hit-${effect.id}`}
-              x={effect.x}
-              y={effect.y}
-              variant={effect.variant}
-              onComplete={() => removeHitEffect(effect.id)}
-            />
-          ))}
-
-          {moleHitEffects.map((effect) => (
-            <MoleHitBurst
-              key={`mole-hit-${effect.id}`}
-              x={effect.x}
-              y={effect.y}
-              onComplete={() => removeMoleHitEffect(effect.id)}
-            />
-          ))}
-
-          {activeAttacks.map((attack) => (
-            <BombSequence
-              key={attack.id}
-              angle={attack.angle}
+            <AvatarStrikeLayer
+              strikes={avatarActiveStrikes}
+              avatarUrl={avatarStrikeUrl}
               gameplayTargetRef={estateTargetRef}
-              onExplode={triggerExplosion}
-              onComplete={() => finishBombing(attack.id)}
+              onArrowHit={triggerAvatarArrowHit}
+              onComplete={completeAvatarStrike}
             />
-          ))}
 
-          <PlinkoLayer
-            rounds={activePlinkoRounds}
-            onLand={triggerPlinkoLand}
-            onComplete={handlePlinkoComplete}
-          />
-
-          <AvatarStrikeLayer
-            strikes={avatarActiveStrikes}
-            avatarUrl={avatarStrikeUrl}
-            gameplayTargetRef={estateTargetRef}
-            onArrowHit={triggerAvatarArrowHit}
-            onComplete={completeAvatarStrike}
-          />
-
-          <AvatarCoinLayer
-            showers={avatarActiveCoins}
-            gameplayTargetRef={estateTargetRef}
-            onCoinHit={triggerAvatarCoinHit}
-            onShowerStart={triggerAvatarCoinShowerStart}
-            onComplete={completeAvatarCoin}
-          />
-
-          <DiceRollLayer
-            rolls={activeDiceRolls}
-            gameplayTargetRef={estateTargetRef}
-            onLand={triggerDiceLand}
-            onComplete={completeDiceRoll}
-          />
-
-          <VerticalLightningLayer
-            storms={activeVerticalLightningStorms}
-            gameplayTargetRef={estateTargetRef}
-            onLightningStrike={triggerVerticalLightningStrike}
-            onComplete={completeVerticalLightning}
-          />
-
-          <SoccerBallLayer
-            kicks={activeSoccerBallKicks}
-            gameplayTargetRef={estateTargetRef}
-            onEstateHit={triggerSoccerBallHit}
-            onComplete={completeSoccerBallKick}
-          />
-
-          <ExplosionFlash burstId={explosionBurstId} />
-
-          {penaltyFloats.map((f) => (
-            <EstateScoreFloat
-              key={f.id}
-              delta={f.delta}
-              source={f.source}
-              sheepVariant={f.sheepVariant}
-              gameAreaRef={gameAreaRef}
-              estateTargetRef={estateTargetRef}
-              onComplete={() => removePenaltyFloat(f.id)}
+            <AvatarCoinLayer
+              showers={avatarActiveCoins}
+              gameplayTargetRef={estateTargetRef}
+              onCoinHit={triggerAvatarCoinHit}
+              onShowerStart={triggerAvatarCoinShowerStart}
+              onComplete={completeAvatarCoin}
             />
-          ))}
-        </div>
+
+            <DiceRollLayer
+              rolls={activeDiceRolls}
+              gameplayTargetRef={estateTargetRef}
+              onLand={triggerDiceLand}
+              onComplete={completeDiceRoll}
+            />
+
+            <VerticalLightningLayer
+              storms={activeVerticalLightningStorms}
+              gameplayTargetRef={estateTargetRef}
+              onLightningStrike={triggerVerticalLightningStrike}
+              onComplete={completeVerticalLightning}
+            />
+
+            <SoccerBallLayer
+              kicks={activeSoccerBallKicks}
+              gameplayTargetRef={estateTargetRef}
+              onEstateHit={triggerSoccerBallHit}
+              onComplete={completeSoccerBallKick}
+            />
+
+            <ExplosionFlash burstId={explosionBurstId} />
+
+            {penaltyFloats.map((f) => (
+              <EstateScoreFloat
+                key={f.id}
+                delta={f.delta}
+                source={f.source}
+                sheepVariant={f.sheepVariant}
+                gameAreaRef={gameAreaRef}
+                estateTargetRef={estateTargetRef}
+                onComplete={() => removePenaltyFloat(f.id)}
+              />
+            ))}
+          </div>
         </div>
 
         <TrumpSpawnLayer
@@ -1004,9 +1257,10 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
 
         <PigBankLayer
           spawns={activePigBankSpawns}
-          onReward={triggerPigBankReward}
-          onRainChange={setMoneyRainShake}
-          onComplete={completePigBank}
+          onStart={handlePigBankStart}
+          onReward={() => {}}
+          onRainChange={handlePigBankRainChange}
+          onComplete={handlePigBankComplete}
         />
 
         <ButterflyLayer
@@ -1023,6 +1277,13 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           onComplete={completeMissileStrike}
         />
 
+        <TomatoLayer
+          spawns={activeTomatoSpawns}
+          gameplayTargetRef={estateTargetRef}
+          onImpact={triggerTomatoReward}
+          onComplete={completeTomato}
+        />
+
         <HackerEffectLayer
           effects={activeHackerEffects}
           layerHostRef={gameAreaRef}
@@ -1032,16 +1293,15 @@ export const StickmanBombCanvas = forwardRef<StickmanBombCanvasHandle, StickmanB
           balancePanelRef={balancePanelRef ?? emptyBalancePanelRef}
           balanceDockRef={balanceDockRef ?? emptyBalanceDockRef}
           getBalance={getBalance}
+          drainTotal={Math.abs(getActionMoneyAmount('hack', actionMoneyOverrides))}
           onDrain={triggerHackerDrain}
           onComplete={handleHackerEffectComplete}
         />
 
-        <DivineCrossbowLayer
-          sessions={divineCrossbowSessions}
-          clipRootRef={gameAreaRef}
-          gameplayTargetRef={estateTargetRef}
-          onBoltHit={triggerDivineCrossbowHit}
-          onComplete={completeDivineCrossbow}
+        <MoneySpinnerLayer
+          spins={moneySpinnerSpins}
+          onWin={triggerMoneySpinnerWin}
+          onComplete={handleMoneySpinnerComplete}
         />
 
         <SeasonSessionBadge

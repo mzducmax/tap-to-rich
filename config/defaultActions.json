@@ -1,0 +1,22 @@
+{
+  "defaultActions": [
+    { "actionId": 1, "actionName": "Enemy: System hack", "gameId": "only_click", "units": 1 },
+    { "actionId": 2, "actionName": "Enemy: Bomb", "gameId": "only_click", "units": 1 },
+    { "actionId": 3, "actionName": "Helper: Plinko", "gameId": "only_click", "units": 1 },
+    { "actionId": 4, "actionName": "Enemy: Grappling hook heist", "gameId": "only_click", "units": 1 },
+    { "actionId": 5, "actionName": "Helper: Money train", "gameId": "only_click", "units": 1 },
+    { "actionId": 6, "actionName": "Helper: Money spinner", "gameId": "only_click", "units": 1 },
+    { "actionId": 7, "actionName": "Helper: Dice roll", "gameId": "only_click", "units": 1 },
+    { "actionId": 8, "actionName": "Enemy: Vertical lightning", "gameId": "only_click", "units": 1 },
+    { "actionId": 9, "actionName": "Enemy: Knife drop", "gameId": "only_click", "units": 1 },
+    { "actionId": 10, "actionName": "Enemy: Trump spawn", "gameId": "only_click", "units": 1 },
+    { "actionId": 11, "actionName": "Helper: Pig bank", "gameId": "only_click", "units": 1 },
+    { "actionId": 12, "actionName": "Helper: Gold nugget slam", "gameId": "only_click", "units": 1 },
+    { "actionId": 13, "actionName": "Enemy: Missile strike", "gameId": "only_click", "units": 1 },
+    { "actionId": 14, "actionName": "Enemy: - Win", "gameId": "only_click", "units": 1 },
+    { "actionId": 15, "actionName": "Helper: + Win", "gameId": "only_click", "units": 1 },
+    { "actionId": 16, "actionName": "Enemy: Reset", "gameId": "only_click", "units": 1 },
+    { "actionId": 17, "actionName": "Helper: Tomato throw", "gameId": "only_click", "units": 1 },
+    { "actionId": 18, "actionName": "Enemy: Bird flock", "gameId": "only_click", "units": 1 }
+  ]
+}

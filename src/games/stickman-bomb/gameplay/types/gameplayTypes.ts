@@ -14,6 +14,8 @@ export type PenaltyFloat = {
 
 export type ScoreFloatSource =
   | 'hammer'
+  | 'hammerCombo'
+  | 'hammerMegaCombo'
   | 'gun'
   | 'key-0'
   | 'key-1'
@@ -28,6 +30,7 @@ export type ScoreFloatSource =
   | 'key-p'
   | 'key-11'
   | 'key-i'
+  | 'key-u'
   | 'sheep'
   | 'bird'
   | 'mole'

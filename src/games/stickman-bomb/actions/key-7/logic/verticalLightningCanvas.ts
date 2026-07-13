@@ -6,6 +6,7 @@
 export type { VerticalBoltSpawn } from './verticalLightningPixiCanvas';
 export {
   cancelAllVerticalBolts,
+  cancelVerticalBoltsByOwner,
   isVerticalLightningCanvasReady,
   isVerticalLightningCanvasSized,
   mountVerticalLightningCanvas,

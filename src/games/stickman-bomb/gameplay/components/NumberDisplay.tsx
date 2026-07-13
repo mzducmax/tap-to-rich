@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { StaticStyle } from '../../../../components/StaticStyle';
 import { motion, AnimatePresence, type useAnimation } from 'motion/react';
 import { BALANCE_DIGIT_HEIGHT, ClassicDigit } from './ClassicDigit';
 import { counterStylesBalance } from '../styles/counterStylesBalance';
@@ -100,8 +101,8 @@ export function NumberDisplay({
 
   return (
     <div ref={displayRef} className="score-display-root">
-      <style>{scoreDisplaySceneStyles}</style>
-      <style>{getCounterStyles(displayStyle)}</style>
+      <StaticStyle css={scoreDisplaySceneStyles} />
+      <StaticStyle css={getCounterStyles(displayStyle)} />
       <AnimatePresence>
         {moleBonusFloats.map((bonus) => (
           <FloatingMoleBonus

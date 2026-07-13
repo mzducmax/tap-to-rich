@@ -16,6 +16,7 @@ import {
 type PigBankInstanceProps = {
   spawnId: number;
   layerRef: React.RefObject<HTMLDivElement | null>;
+  onStart?: () => void;
   onReward: () => void;
   onRainChange?: (raining: boolean) => void;
   onComplete: () => void;
@@ -24,14 +25,17 @@ type PigBankInstanceProps = {
 function PigBankInstanceInner({
   spawnId,
   layerRef,
+  onStart,
   onReward,
   onRainChange,
   onComplete,
 }: PigBankInstanceProps) {
+  const onStartRef = useRef(onStart);
   const onRewardRef = useRef(onReward);
   const onRainChangeRef = useRef(onRainChange);
   const onCompleteRef = useRef(onComplete);
   const sequenceIdRef = useRef(0);
+  onStartRef.current = onStart;
   onRewardRef.current = onReward;
   onRainChangeRef.current = onRainChange;
   onCompleteRef.current = onComplete;
@@ -66,6 +70,13 @@ function PigBankInstanceInner({
       if (layerRect.width > 0 && layerRect.height > 0) {
         resizePigBankCanvas(layerRect.width, layerRect.height);
       }
+
+      // Fire the intro cue right as the pig actually spawns on screen, not
+      // when the key press was merely queued — otherwise a second [P] press
+      // while one session is still running plays the clip early and it's
+      // gone (or gets cut off by the first session's completion) by the
+      // time this queued spawn finally appears.
+      onStartRef.current?.();
 
       await spawnPigBankSession({
         onReward: () => {

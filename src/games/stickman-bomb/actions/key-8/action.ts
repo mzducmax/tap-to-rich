@@ -1,5 +1,5 @@
 /**
- * Key [8] — soccer ball kicked from off-screen, bounces on the estate.
+ * Key [8] — a knife falls from the sky and plants at a random spot.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,7 +7,7 @@ import { KEY_8_SOCCER_BALL, canRunGameplayKey, type KeyActionDefinition } from '
 
 export const key8SoccerBallAction: KeyActionDefinition = {
   key: KEY_8_SOCCER_BALL,
-  label: 'Soccer ball kick',
+  label: 'Knife drop',
   canRun: canRunGameplayKey,
   run: ({ triggerSoccerBallKick }) => triggerSoccerBallKick(),
 };

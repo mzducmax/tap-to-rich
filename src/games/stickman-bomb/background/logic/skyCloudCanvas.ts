@@ -73,18 +73,22 @@ function pickRegion(): SkyCloudAtlasRegion {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/** Keep cloud sprites in the upper sky — avoids hard clip at layer bottom. */
+/**
+ * Keep cloud sprites in the upper sky — avoids hard clip at layer bottom.
+ * Fractions are relative to the 62%-of-viewport sky band the canvas covers
+ * (previously relative to the full viewport).
+ */
 function randomCloudY(height: number, drawH: number): number {
-  const yMin = height * -0.14;
-  const yMax = height * 0.16;
+  const yMin = height * -0.23;
+  const yMax = height * 0.26;
   const y = yMin + Math.random() * (yMax - yMin);
-  const maxBottom = height * 0.34;
+  const maxBottom = height * 0.55;
   return Math.min(y, maxBottom - drawH);
 }
 
 function spawnCloud(width: number, height: number, spawnX?: number): CloudSprite {
   const region = pickRegion();
-  const skyBand = height * 0.26;
+  const skyBand = height * 0.42;
   const regionScale = Math.min(region.w, 320) / 320;
   const scale = (0.32 + Math.random() * 0.52) * (0.78 + regionScale * 0.22);
   const drawH = skyBand * scale;
@@ -106,7 +110,7 @@ function buildSprites(width: number, height: number): CloudSprite[] {
 
 function recycleCloud(sprite: CloudSprite, width: number, height: number): void {
   const region = pickRegion();
-  const skyBand = height * 0.26;
+  const skyBand = height * 0.42;
   const regionScale = Math.min(region.w, 320) / 320;
   const scale = (0.32 + Math.random() * 0.52) * (0.78 + regionScale * 0.22);
   const drawH = skyBand * scale;
@@ -121,10 +125,15 @@ function recycleCloud(sprite: CloudSprite, width: number, height: number): void 
   sprite.y = randomCloudY(height, drawH);
 }
 
-function drawFrame(now: number) {
-  if (!ctx || logicalWidth <= 0 || logicalHeight <= 0) return;
+// Clouds drift at most ~36px/s, so redrawing above ~30fps is invisible while
+// re-rasterizing the whole sky canvas every display frame is a major FPS cost.
+const MIN_DRAW_INTERVAL_MS = 32;
 
-  const dt = lastTickMs > 0 ? Math.min(48, now - lastTickMs) : 16;
+function drawFrame(now: number, force = false) {
+  if (!ctx || logicalWidth <= 0 || logicalHeight <= 0) return;
+  if (!force && lastTickMs > 0 && now - lastTickMs < MIN_DRAW_INTERVAL_MS) return;
+
+  const dt = lastTickMs > 0 ? Math.min(64, now - lastTickMs) : 16;
   lastTickMs = now;
 
   ctx.setTransform(bufferDpr, 0, 0, bufferDpr, 0, 0);
@@ -197,7 +206,7 @@ function resizeBuffer(width: number, height: number) {
   ctx.imageSmoothingEnabled = true;
 
   sprites = buildSprites(width, height);
-  drawFrame(performance.now());
+  drawFrame(performance.now(), true);
 }
 
 export function setSkyCloudTheme(theme: ActiveThemeKey): void {
@@ -206,7 +215,7 @@ export function setSkyCloudTheme(theme: ActiveThemeKey): void {
   if (logicalWidth > 0 && logicalHeight > 0 && imgReady) {
     sprites = buildSprites(logicalWidth, logicalHeight);
   }
-  drawFrame(performance.now());
+  drawFrame(performance.now(), true);
 }
 
 export function mountSkyCloudCanvas(target: HTMLCanvasElement): void {

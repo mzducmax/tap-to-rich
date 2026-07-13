@@ -44,10 +44,17 @@ export type LoginRequest = {
   key: number;
 };
 
+export type GifterFloatHandler = (info: {
+  name: string;
+  avatar: string;
+  id: string | null;
+}) => void;
+
 export function useLiveNetworking(
   loginRequest: LoginRequest | null,
   onGiftBox?: GiftBoxHandler,
   onSettingsAction?: SettingsActionHandler,
+  onGifterFloat?: GifterFloatHandler,
 ) {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [connectionMessage, setConnectionMessage] = useState('');
@@ -62,8 +69,10 @@ export function useLiveNetworking(
   const authOverlayLockedRef = useRef(false);
   const onGiftBoxRef = useRef(onGiftBox);
   const onSettingsActionRef = useRef(onSettingsAction);
+  const onGifterFloatRef = useRef(onGifterFloat);
   onGiftBoxRef.current = onGiftBox;
   onSettingsActionRef.current = onSettingsAction;
+  onGifterFloatRef.current = onGifterFloat;
 
   const getRankAuth = useCallback((): RankAuth | null => {
     return gameClientRef.current?.getRankAuth() ?? null;
@@ -105,6 +114,8 @@ export function useLiveNetworking(
     const gameClient = new GameClient(getGameClientConfig());
     let giftActionById = new Map<number, GiftActionSetting>();
     const likeState = createLikeRuntimeState();
+    /** uniqueId đã kích follow — mỗi user chỉ được follow 1 lần trong phiên live. */
+    const followedViewerIds = new Set<string>();
     const socialSettingsRef = {
       like: null as LikeSetting | null,
       likeTarget: null as LikeSetting | null,
@@ -258,6 +269,12 @@ export function useLiveNetworking(
     const messageRouter = new MessageRouter(
       {
       onGift: (gift) => {
+        const avatar = typeof gift.avatar === 'string' ? gift.avatar : '';
+        onGifterFloatRef.current?.({
+          name: getGiftViewerName(gift),
+          avatar,
+          id: getGiftViewerId(gift),
+        });
         applyGiftActionFromSettings(gift);
       },
       onLike: (msg) => {
@@ -267,6 +284,14 @@ export function useLiveNetworking(
         handleSocialEventBySettings(msg, socialSettingsRef.join, 'Join', 'Join Event');
       },
       onFollow: (msg) => {
+        const viewerId = String(msg.uniqueId ?? msg.userId ?? '').trim();
+        if (viewerId) {
+          if (followedViewerIds.has(viewerId)) {
+            console.log('[Follow] bỏ qua — user đã follow trong phiên:', viewerId);
+            return;
+          }
+          followedViewerIds.add(viewerId);
+        }
         handleSocialEventBySettings(msg, socialSettingsRef.follow, 'Follow', 'Follow Event');
       },
       onShare: (msg) => {

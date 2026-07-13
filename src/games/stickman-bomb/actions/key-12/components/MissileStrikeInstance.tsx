@@ -4,10 +4,12 @@
  */
 
 import React, { memo, useLayoutEffect, useRef } from 'react';
+import { audioManager } from '../../../../../utils/audio';
 import { sleep, waitForRefs } from '../../shared/animationUtils';
 import {
   MISSILE_EXPLODE_MS,
   MISSILE_FLIGHT_MS,
+  MISSILE_SOUND_BOOM_MS,
   MISSILE_VOLLEY_COUNT,
   MISSILE_VOLLEY_STAGGER_MS,
 } from '../config/missileStrikeConfig';
@@ -43,6 +45,7 @@ function MissileStrikeInstanceInner({
   useLayoutEffect(() => {
     const sequenceId = ++sequenceIdRef.current;
     let cancelled = false;
+    let soundTimer: number | undefined;
 
     async function runStrike() {
       const ready = await waitForRefs([layerRef, gameplayTargetRef]);
@@ -112,6 +115,11 @@ function MissileStrikeInstanceInner({
         };
       };
 
+      // Missile clip starts as the volley spawns, offset so its boom peak
+      // (MISSILE_SOUND_BOOM_MS into the clip) lands exactly on estate impact.
+      const soundDelay = Math.max(0, MISSILE_FLIGHT_MS - MISSILE_SOUND_BOOM_MS);
+      soundTimer = window.setTimeout(() => audioManager.playMissileLaunch(), soundDelay);
+
       const launches: Promise<void>[] = [];
       for (let i = 0; i < MISSILE_VOLLEY_COUNT; i++) {
         if (cancelled || sequenceId !== sequenceIdRef.current) break;
@@ -129,6 +137,7 @@ function MissileStrikeInstanceInner({
 
     return () => {
       cancelled = true;
+      if (soundTimer !== undefined) window.clearTimeout(soundTimer);
     };
   }, [missileId, gameplayTargetRef, layerRef]);
 

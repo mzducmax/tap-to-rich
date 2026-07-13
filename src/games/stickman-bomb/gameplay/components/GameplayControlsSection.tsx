@@ -34,6 +34,42 @@ function ControlRow({
   );
 }
 
+/** Live action row — no key badge: these only spawn from a WSS `game_execute_action`
+ * event (see `ACTION_REGISTRY` in `gameActionExecutor.ts`), never from a keypress. */
+function LiveActionRow({ name, description }: { name: string; description: string }) {
+  return (
+    <div className="flex items-start gap-2 text-[11px] leading-snug">
+      <span className="shrink-0 font-black text-indigo-900 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200/80">
+        {name}
+      </span>
+      <span className="font-bold text-indigo-950/75 pt-0.5">{description}</span>
+    </div>
+  );
+}
+
+/** Reference list of live actions dispatched by `actionId` — kept in sync with
+ * `config/defaultActions.json` and `ACTION_REGISTRY` in `gameActionExecutor.ts`. */
+const LIVE_ACTIONS: { name: string; description: string }[] = [
+  { name: 'System hack', description: 'Full-screen system hack sequence (matrix rain, alert, money drain)' },
+  { name: 'Bomb', description: 'Stickman tosses a bomb onto the estate (−$10 on explode)' },
+  { name: 'Plinko', description: 'Ball drops through the tower; bet × slot multiplier added to assets' },
+  { name: 'Grappling hook heist', description: 'Grappling hook strikes the estate' },
+  { name: 'Money train', description: 'Money train drops coins over the estate (+$5 each)' },
+  { name: 'Money spinner', description: 'Prize wheel spins; the landed tier is credited to the estate' },
+  { name: 'Dice roll', description: 'Rolls a die on the estate; reward equals the face value' },
+  { name: 'Vertical lightning', description: 'Lightning bolts strike straight down on the estate' },
+  { name: 'Knife drop', description: 'A knife falls from the sky and plants at a random spot' },
+  { name: 'Trump spawn', description: 'Trump box spawn with money zigzag + camera zoom (−$10,000)' },
+  { name: 'Pig bank', description: 'Golden pig bank descends, money piles up (+$1,000)' },
+  { name: 'Gold nugget slam', description: 'Gold nugget arcs in, slams the house, gold burst (+$20)' },
+  { name: 'Missile strike', description: 'Missile flies in from off-screen and explodes on the estate (−$20)' },
+  { name: '- Win', description: 'Subtracts one win from the match progress' },
+  { name: '+ Win', description: 'Adds one win to the match progress' },
+  { name: 'Reset', description: 'Resets the current match' },
+  { name: 'Tomato throw', description: 'Tomato arcs in and splats the house (−$20)' },
+  { name: 'Bird flock', description: 'A flock of birds sweeps the estate (+$10 per hit)' },
+];
+
 export function GameplayControlsSection({
   weaponMode,
   weaponSwitchKey,
@@ -54,36 +90,31 @@ export function GameplayControlsSection({
       </p>
       <div className="flex flex-col gap-1.5 mt-0.5">
         {!isGun && (
-          <>
-            <ControlRow keys="[1]" action="Bomb — stickman tosses bomb on estate (−$10 on explode)" />
-            <ControlRow keys="[2]" action="Plinko — drag ball on top rail, release to drop; $50 bet × slot multiplier added to assets" />
-            <ControlRow keys="[3]" action="Avatar strike — arrows rain on estate (−$5 each)" />
-            <ControlRow keys="[4]" action="Avatar coin shower — toss coins into estate (+$5 each)" />
-            <ControlRow keys="[5]" action="Avatar energy blast — rapid palm strikes on estate (−$5 each)" />
-            <ControlRow keys="[6]" action="Dice roll — ×10–×100 multiplier; face × multiplier added (+$10–$600)" />
-            <ControlRow keys="[7]" action="Vertical lightning — bolts drop straight down on estate (−$5 each hit)" />
-            <ControlRow keys="[8]" action="Soccer ball — fast shots; −$5 only when the ball hits the estate" />
-            <ControlRow
-              keys="Click"
-              action={`Hammer estate (+$${hammerEstateReward} per hit)`}
-            />
-            <ControlRow keys={`[${switchLabel}]`} action="Switch to gun mode" />
-          </>
+          <ControlRow
+            keys="Click"
+            action={`Hammer estate (+$${hammerEstateReward} per hit)`}
+          />
         )}
-        {isGun && (
-          <>
-            <ControlRow keys="Click" action="Shoot (scope view)" />
-            <ControlRow keys={`[${switchLabel}]`} action="Switch to hammer mode" />
-          </>
-        )}
+        {isGun && <ControlRow keys="Click" action="Shoot (scope view)" />}
+        <ControlRow keys={`[${switchLabel}]`} action={isGun ? 'Switch to hammer mode' : 'Switch to gun mode'} />
         <ControlRow
           keyPreview={<MoleControlPreview />}
           action="Whack-a-mole — holes & mice (+$10 per hit)"
         />
-        <ControlRow keys="[Q]" action="Sheep herd (+$5 white, +$10×4 pink, +$30×2 gold, −$10 black, auto 10s)" />
-        <ControlRow keys="[W]" action="Bird flock wave (+$10 per hit)" />
         <ControlRow keys="[M]" action="Open / close game market" />
         <ControlRow keys="ESC" action="Open / close settings" />
+      </div>
+
+      <span className="mt-1.5 text-xs font-black uppercase text-indigo-950/70 tracking-wider">
+        Live Actions
+      </span>
+      <p className="text-[10px] font-bold text-indigo-900/50 leading-snug">
+        Triggered only by a live event (gift / like), never by a keypress.
+      </p>
+      <div className="flex flex-col gap-1.5 mt-0.5">
+        {LIVE_ACTIONS.map((liveAction) => (
+          <LiveActionRow key={liveAction.name} name={liveAction.name} description={liveAction.description} />
+        ))}
       </div>
     </div>
   );

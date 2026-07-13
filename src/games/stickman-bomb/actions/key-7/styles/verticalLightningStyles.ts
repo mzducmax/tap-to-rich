@@ -121,4 +121,96 @@ export const verticalLightningStyles = `
     18%  { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
     100% { opacity: 0; transform: translate(-50%, 0) scale(1.35); }
   }
+
+  /* ── Combo badge ─────────────────────────────────────────────────────── */
+  .vertical-lightning-combo-wrap {
+    position: absolute;
+    left: 50%;
+    top: 26%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    text-align: center;
+  }
+
+  .vertical-lightning-combo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    animation: vertical-lightning-combo-pop 0.32s cubic-bezier(0.18, 1.6, 0.4, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .vertical-lightning-combo-count {
+    font-weight: 900;
+    font-size: clamp(40px, 7vw, 88px);
+    letter-spacing: -0.02em;
+    color: #fff;
+    -webkit-text-stroke: 2px rgba(12, 31, 73, 0.85);
+    text-shadow:
+      0 0 14px rgba(56, 189, 248, 0.95),
+      0 0 30px rgba(14, 116, 233, 0.7),
+      0 4px 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .vertical-lightning-combo-shout {
+    font-weight: 800;
+    font-size: clamp(13px, 2vw, 24px);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #e0f2fe;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Escalating tiers turn cooler/brighter as the streak climbs. */
+  .vertical-lightning-combo-hot .vertical-lightning-combo-count {
+    color: #bae6fd;
+    text-shadow:
+      0 0 16px rgba(125, 211, 252, 0.95),
+      0 0 34px rgba(56, 189, 248, 0.7),
+      0 4px 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .vertical-lightning-combo-fire .vertical-lightning-combo-count {
+    color: #7dd3fc;
+    text-shadow:
+      0 0 18px rgba(56, 189, 248, 1),
+      0 0 38px rgba(14, 116, 233, 0.75),
+      0 4px 10px rgba(0, 0, 0, 0.55);
+  }
+
+  .vertical-lightning-combo-rampage .vertical-lightning-combo-count {
+    color: #a5b4fc;
+    text-shadow:
+      0 0 20px rgba(129, 140, 248, 1),
+      0 0 42px rgba(79, 70, 229, 0.8),
+      0 4px 12px rgba(0, 0, 0, 0.6);
+  }
+
+  .vertical-lightning-combo-godlike .vertical-lightning-combo-count {
+    color: #f5d0fe;
+    -webkit-text-stroke: 2px rgba(67, 26, 117, 0.9);
+    text-shadow:
+      0 0 24px rgba(232, 121, 249, 1),
+      0 0 50px rgba(147, 51, 234, 0.85),
+      0 4px 14px rgba(0, 0, 0, 0.6);
+    animation: vertical-lightning-combo-godlike-shake 0.4s ease-in-out infinite;
+  }
+
+  @keyframes vertical-lightning-combo-pop {
+    0% { opacity: 0; transform: scale(0.4) translateY(10px); }
+    55% { opacity: 1; transform: scale(1.18) translateY(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  @keyframes vertical-lightning-combo-godlike-shake {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.04) rotate(-1.5deg); }
+    75% { transform: scale(1.04) rotate(1.5deg); }
+  }
 `;

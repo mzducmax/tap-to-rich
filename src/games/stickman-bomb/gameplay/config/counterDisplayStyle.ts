@@ -36,7 +36,7 @@ export function loadCounterDisplayStyle(): CounterDisplayStyle {
   if (saved && VALID_STYLES.includes(saved as CounterDisplayStyle)) {
     return saved as CounterDisplayStyle;
   }
-  return 'stick';
+  return 'classic';
 }
 
 export function saveCounterDisplayStyle(style: CounterDisplayStyle) {

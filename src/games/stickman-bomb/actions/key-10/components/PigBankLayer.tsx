@@ -15,6 +15,7 @@ import { pigBankStyles } from '../styles/pigBankStyles';
 
 type PigBankLayerProps = {
   spawns: ActivePigBankSpawn[];
+  onStart?: () => void;
   onReward: () => void;
   onRainChange?: (raining: boolean) => void;
   onComplete: (spawnId: number) => void;
@@ -22,6 +23,7 @@ type PigBankLayerProps = {
 
 export function PigBankLayer({
   spawns,
+  onStart,
   onReward,
   onRainChange,
   onComplete,
@@ -71,6 +73,7 @@ export function PigBankLayer({
             key={spawn.id}
             spawnId={spawn.id}
             layerRef={layerRef}
+            onStart={onStart}
             onReward={onReward}
             onRainChange={onRainChange}
             onComplete={() => onComplete(spawn.id)}

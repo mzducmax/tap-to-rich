@@ -4,7 +4,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { BIRD_FLOCK_DURATION_MS, type BirdPhase } from '../config/birdConfig';
+import { audioManager } from '../../../../../utils/audio';
+import { BIRD_EXIT_BUFFER_MS, BIRD_FLOCK_DURATION_MS, type BirdPhase } from '../config/birdConfig';
 import { buildBirdFlock, type BirdSpawn } from '../logic/buildBirdFlock';
 import { hitTestBirdAtPoint, isDuckReadyToDropPoop } from '../logic/birdHitTest';
 import {
@@ -90,6 +91,7 @@ export function useBirdFlock({
   }, []);
 
   const resetCycle = useCallback(() => {
+    audioManager.stopBirdsFly();
     pausedAtRef.current = null;
     waveStartMsRef.current = 0;
     waveIdRef.current = 0;
@@ -109,8 +111,16 @@ export function useBirdFlock({
 
   const triggerWave = useCallback(() => {
     if (!active || Date.now() < crossingUntilRef.current) return false;
-    crossingUntilRef.current = Date.now() + BIRD_FLOCK_DURATION_MS;
     beginCrossingWave();
+    // Use this wave's actual last-bird exit time (delay + cross duration) rather than
+    // the fixed worst-case constant, so audio/state don't linger after smaller/faster
+    // flocks have already left the screen.
+    const flockExitMs = flockRef.current.reduce(
+      (max, bird) => Math.max(max, bird.delayMs + bird.durationMs),
+      0,
+    );
+    crossingUntilRef.current = Date.now() + flockExitMs + BIRD_EXIT_BUFFER_MS;
+    audioManager.playBirdsFly();
     return true;
   }, [active, beginCrossingWave]);
 
@@ -151,6 +161,7 @@ export function useBirdFlock({
       if (crossingUntilRef.current > 0 && Date.now() >= crossingUntilRef.current) {
         crossingUntilRef.current = 0;
         setPhase('idle');
+        audioManager.stopBirdsFly();
       }
     };
 
@@ -206,6 +217,7 @@ export function useBirdFlock({
               ...prev,
               { id: penaltyFloatId, x: drop.hitX, y: drop.hitY },
             ]);
+            audioManager.playPoop();
             onPoopHitCounterRef.current();
           },
           drop.fallMs + Math.round(drop.stickMs * 0.65),

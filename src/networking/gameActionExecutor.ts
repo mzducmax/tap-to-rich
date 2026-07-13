@@ -1,11 +1,66 @@
 import type { GiftBoxEffect } from './giftBoxRules';
 import type { GameExecuteActionData, NetworkMessage } from './types';
 
-export const ACTION_ADD_BOX = 1;
-export const ACTION_SUBTRACT_BOX = 2;
-export const ACTION_RESET = 3;
-export const ACTION_WIN_ADD = 4;
-export const ACTION_WIN_SUBTRACT = 5;
+/**
+ * Gameplay effect the canvas can trigger on demand (mirrors the keyboard
+ * actions in `games/stickman-bomb/actions`). Network actions map onto these.
+ */
+export type GameEffectId =
+  | 'hack'
+  | 'bomb'
+  | 'plinko'
+  | 'grappleHeist'
+  | 'moneyTrain'
+  | 'moneySpinner'
+  | 'diceRoll'
+  | 'verticalLightning'
+  | 'soccerBall'
+  | 'trumpSpawn'
+  | 'pigBank'
+  | 'goldNugget'
+  | 'missile'
+  | 'tomato'
+  | 'birdFlock';
+
+type ActionDescriptor =
+  | { kind: 'effect'; effectId: GameEffectId; name: string }
+  | { kind: 'box'; direction: 'add' | 'subtract'; name: string }
+  | { kind: 'win'; sign: 1 | -1; name: string }
+  | { kind: 'reset'; name: string };
+
+/**
+ * Single source of truth: network `actionId` → in-game behaviour. The same
+ * ids must be configured server-side in `defaultActions` (see README/config).
+ * 1–13: gameplay effects · 14–16: win / reset.
+ */
+export const ACTION_REGISTRY: Record<number, ActionDescriptor> = {
+  1: { kind: 'effect', effectId: 'hack', name: 'System hack' },
+  2: { kind: 'effect', effectId: 'bomb', name: 'Bomb' },
+  3: { kind: 'effect', effectId: 'plinko', name: 'Plinko' },
+  4: { kind: 'effect', effectId: 'grappleHeist', name: 'Grappling hook heist' },
+  5: { kind: 'effect', effectId: 'moneyTrain', name: 'Money train' },
+  6: { kind: 'effect', effectId: 'moneySpinner', name: 'Money spinner' },
+  7: { kind: 'effect', effectId: 'diceRoll', name: 'Dice roll' },
+  8: { kind: 'effect', effectId: 'verticalLightning', name: 'Vertical lightning' },
+  9: { kind: 'effect', effectId: 'soccerBall', name: 'Knife drop' },
+  10: { kind: 'effect', effectId: 'trumpSpawn', name: 'Trump spawn' },
+  11: { kind: 'effect', effectId: 'pigBank', name: 'Pig bank' },
+  12: { kind: 'effect', effectId: 'goldNugget', name: 'Gold nugget slam' },
+  13: { kind: 'effect', effectId: 'missile', name: 'Missile strike' },
+  14: { kind: 'win', sign: -1, name: '- Win' },
+  15: { kind: 'win', sign: 1, name: '+ Win' },
+  16: { kind: 'reset', name: 'Reset' },
+  17: { kind: 'effect', effectId: 'tomato', name: 'Tomato throw' },
+  18: { kind: 'effect', effectId: 'birdFlock', name: 'Bird flock' },
+};
+
+/** Named ids used across the network layer. */
+export const ACTION_WIN_SUBTRACT = 14;
+export const ACTION_WIN_ADD = 15;
+export const ACTION_RESET = 16;
+
+/** Safety cap so a high-combo gift can't spam a single effect endlessly. */
+export const MAX_EFFECT_REPEAT = 25;
 
 export type ActionEffectOptions = {
   viewerId?: string | null;
@@ -15,7 +70,8 @@ export type ActionEffectOptions = {
 export type SettingsActionResult =
   | { type: 'box'; effect: GiftBoxEffect; source?: string }
   | { type: 'reset'; viewerName: string }
-  | { type: 'winDelta'; delta: number; viewerName: string };
+  | { type: 'winDelta'; delta: number; viewerName: string }
+  | { type: 'effect'; effectId: GameEffectId; repeat: number; viewerName: string };
 
 export function parseGameExecuteAction(msg: NetworkMessage): GameExecuteActionData | null {
   const raw = (msg.data ?? msg.payload ?? msg) as Record<string, unknown>;
@@ -51,78 +107,52 @@ export function resolveSettingsAction(
   const safeUnits = Math.max(1, Math.floor(units) || 1);
   const repeat = Math.max(1, Math.floor(number) || 1);
 
-  if (actionId === ACTION_RESET) {
-    return { type: 'reset', viewerName };
+  const descriptor = ACTION_REGISTRY[actionId];
+  if (!descriptor) {
+    console.warn('[GameAction] unsupported actionId:', actionId);
+    return null;
   }
 
-  if (actionId === ACTION_WIN_ADD) {
-    return { type: 'winDelta', delta: repeat * safeUnits, viewerName };
-  }
+  switch (descriptor.kind) {
+    case 'reset':
+      return { type: 'reset', viewerName };
 
-  if (actionId === ACTION_WIN_SUBTRACT) {
-    return { type: 'winDelta', delta: -repeat * safeUnits, viewerName };
-  }
-
-  const totalBoxes = safeUnits * repeat;
-
-  if (actionId === ACTION_ADD_BOX) {
-    return {
-      type: 'box',
-      effect: {
-        direction: 'add',
-        boxes: totalBoxes,
+    case 'win':
+      return {
+        type: 'winDelta',
+        delta: descriptor.sign * repeat * safeUnits,
         viewerName,
-        viewerId: options.viewerId ?? null,
-        coins: options.coins,
-      },
-    };
-  }
+      };
 
-  if (actionId === ACTION_SUBTRACT_BOX) {
-    return {
-      type: 'box',
-      effect: {
-        direction: 'subtract',
-        boxes: totalBoxes,
+    case 'box':
+      return {
+        type: 'box',
+        effect: {
+          direction: descriptor.direction,
+          boxes: safeUnits * repeat,
+          viewerName,
+          viewerId: options.viewerId ?? null,
+          coins: options.coins,
+        },
+      };
+
+    case 'effect':
+      return {
+        type: 'effect',
+        effectId: descriptor.effectId,
+        repeat: Math.min(MAX_EFFECT_REPEAT, safeUnits * repeat),
         viewerName,
-        viewerId: options.viewerId ?? null,
-        coins: options.coins,
-      },
-    };
+      };
   }
-
-  console.warn('[GameAction] unsupported actionId:', actionId);
-  return null;
 }
 
 export function resolveGameExecuteEffects(data: GameExecuteActionData): SettingsActionResult[] {
   const viewerName = data.userInfo?.name?.trim() || 'Live Action';
-  const results: SettingsActionResult[] = [];
-
-  if (data.actionId === ACTION_RESET) {
-    const once = resolveSettingsAction(data.actionId, data.units, 1, viewerName);
-    if (once) results.push(once);
-    return results;
-  }
-
-  if (data.actionId === ACTION_WIN_ADD || data.actionId === ACTION_WIN_SUBTRACT) {
-    const win = resolveSettingsAction(
-      data.actionId,
-      data.units,
-      data.number,
-      viewerName,
-    );
-    if (win) results.push(win);
-    return results;
-  }
-
-  const box = resolveSettingsAction(
+  const result = resolveSettingsAction(
     data.actionId,
     data.units,
     data.number,
     viewerName,
   );
-  if (box) results.push(box);
-
-  return results;
+  return result ? [result] : [];
 }

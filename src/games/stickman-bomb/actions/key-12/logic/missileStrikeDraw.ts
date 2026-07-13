@@ -42,6 +42,74 @@ export type MissileDrawState = {
 
 const TWO_PI = Math.PI * 2;
 
+/**
+ * Pre-rendered radial sprites, built once and blitted with drawImage each
+ * frame. Rasterizing radial gradients per puff/per frame was the hot path;
+ * a cached sprite blit is a plain textured quad for the canvas backend.
+ */
+const SPRITE_SIZE = 128;
+
+type FxSprites = {
+  trail: HTMLCanvasElement;
+  fire: HTMLCanvasElement;
+  flash: HTMLCanvasElement;
+  smoke: HTMLCanvasElement;
+};
+
+let fxSprites: FxSprites | null = null;
+
+function makeRadialSprite(stops: Array<[number, string]>): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = SPRITE_SIZE;
+  canvas.height = SPRITE_SIZE;
+  const ctx = canvas.getContext('2d')!;
+  const half = SPRITE_SIZE / 2;
+  const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+  for (const [offset, color] of stops) grad.addColorStop(offset, color);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, SPRITE_SIZE, SPRITE_SIZE);
+  return canvas;
+}
+
+function getFxSprites(): FxSprites {
+  if (fxSprites) return fxSprites;
+  fxSprites = {
+    // Grey exhaust-trail puff (matches the old per-frame gradient colours).
+    trail: makeRadialSprite([
+      [0, 'rgba(214, 211, 209, 1)'],
+      [0.6, 'rgba(168, 162, 158, 0.6)'],
+      [1, 'rgba(120, 113, 108, 0)'],
+    ]),
+    // Fireball blob — white-hot core cooling to transparent deep red.
+    fire: makeRadialSprite([
+      [0, 'rgba(255, 255, 228, 1)'],
+      [0.22, 'rgba(255, 226, 120, 0.96)'],
+      [0.5, 'rgba(255, 148, 38, 0.8)'],
+      [0.78, 'rgba(226, 70, 18, 0.4)'],
+      [1, 'rgba(160, 30, 10, 0)'],
+    ]),
+    // Impact flash — near-white burst that dies in the first frames.
+    flash: makeRadialSprite([
+      [0, 'rgba(255, 255, 255, 1)'],
+      [0.35, 'rgba(255, 244, 214, 0.85)'],
+      [1, 'rgba(255, 220, 160, 0)'],
+    ]),
+    // Dark aftermath smoke.
+    smoke: makeRadialSprite([
+      [0, 'rgba(82, 78, 75, 0.9)'],
+      [0.55, 'rgba(68, 64, 61, 0.55)'],
+      [1, 'rgba(50, 47, 45, 0)'],
+    ]),
+  };
+  return fxSprites;
+}
+
+/** Deterministic pseudo-random in [0,1) from the missile seed — no per-frame allocation. */
+function rand01(seed: number, i: number): number {
+  const x = Math.sin(seed * 127.1 + i * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 function easeInQuad(t: number): number {
   return t * t;
 }
@@ -97,21 +165,16 @@ function updateSmoke(m: MissileDrawState, now: number, flightT: number) {
 }
 
 function drawSmoke(ctx: CanvasRenderingContext2D, m: MissileDrawState, now: number) {
+  const trail = getFxSprites().trail;
   for (const p of m.smoke) {
     const age = (now - p.born) / MISSILE_SMOKE_LIFE_MS;
     if (age >= 1) continue;
-    const alpha = (1 - age) * 0.42;
-    const r = p.baseR * (0.7 + age * 1.8);
+    const r = Math.max(1, p.baseR * (0.7 + age * 1.8));
     const y = p.y - age * 14 + p.drift * age * 20;
-    const grad = ctx.createRadialGradient(p.x, y, 0, p.x, y, Math.max(1, r));
-    grad.addColorStop(0, `rgba(214, 211, 209, ${alpha})`);
-    grad.addColorStop(0.6, `rgba(168, 162, 158, ${alpha * 0.6})`);
-    grad.addColorStop(1, 'rgba(120, 113, 108, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(p.x, y, Math.max(1, r), 0, TWO_PI);
-    ctx.fill();
+    ctx.globalAlpha = (1 - age) * 0.42;
+    ctx.drawImage(trail, p.x - r, y - r, r * 2, r * 2);
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawRocket(
@@ -177,6 +240,30 @@ function drawRocket(
   ctx.restore();
 }
 
+/** Dark rising smoke column after the fireball — drawn in the source-over pass. */
+function drawExplosionSmoke(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  e: number,
+  seed: number,
+) {
+  if (e < 0.22) return;
+  const smoke = getFxSprites().smoke;
+  const s = (e - 0.22) / 0.78;
+  const alpha = Math.sin(Math.min(1, s) * Math.PI) * 0.55;
+  const puffs = 5;
+  for (let i = 0; i < puffs; i++) {
+    const spread = (rand01(seed, i + 71) - 0.5) * MISSILE_EXPLOSION_RADIUS * 0.7;
+    const rise = s * (46 + rand01(seed, i + 83) * 60) + i * 9;
+    const r =
+      MISSILE_EXPLOSION_RADIUS * (0.28 + rand01(seed, i + 97) * 0.22) * (0.6 + s * 0.8);
+    ctx.globalAlpha = alpha * (0.7 + rand01(seed, i + 41) * 0.3);
+    ctx.drawImage(smoke, x + spread - r, y - rise - r, r * 2, r * 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawExplosion(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -184,41 +271,76 @@ function drawExplosion(
   e: number,
   seed: number,
 ) {
+  const sprites = getFxSprites();
   const grow = easeOutCubic(e);
-  const alpha = 1 - e;
+  const fade = 1 - e;
   const radius = grow * MISSILE_EXPLOSION_RADIUS;
 
-  // Expanding shockwave ring.
-  ctx.strokeStyle = `rgba(255, 226, 160, ${0.55 * alpha})`;
-  ctx.lineWidth = 2 + (1 - e) * 5;
+  // 1. Impact flash — big white burst gone within the first ~15%.
+  if (e < 0.15) {
+    const f = 1 - e / 0.15;
+    const fr = MISSILE_EXPLOSION_RADIUS * (1.05 + (1 - f) * 0.5);
+    ctx.globalAlpha = f * 0.95;
+    ctx.drawImage(sprites.flash, x - fr, y - fr, fr * 2, fr * 2);
+  }
+
+  // 2. Double shockwave rings — leading ring plus a dimmer trailing one.
+  ctx.globalAlpha = 0.6 * fade;
+  ctx.strokeStyle = 'rgb(255, 226, 160)';
+  ctx.lineWidth = 2 + fade * 6;
   ctx.beginPath();
-  ctx.arc(x, y, radius, 0, TWO_PI);
+  ctx.arc(x, y, Math.max(1, radius * 1.04), 0, TWO_PI);
   ctx.stroke();
+  if (e > 0.12) {
+    ctx.globalAlpha = 0.3 * fade;
+    ctx.lineWidth = 1.5 + fade * 3;
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(1, radius * 0.78), 0, TWO_PI);
+    ctx.stroke();
+  }
 
-  // Fireball core.
-  const coreR = radius * 0.72;
-  const core = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, coreR));
-  core.addColorStop(0, `rgba(255, 255, 224, ${alpha})`);
-  core.addColorStop(0.42, `rgba(255, 162, 44, ${0.92 * alpha})`);
-  core.addColorStop(1, 'rgba(196, 40, 18, 0)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(x, y, Math.max(1, coreR), 0, TWO_PI);
-  ctx.fill();
+  // 3. Cauliflower fireball — hot core plus offset blobs so the ball reads
+  // as rolling fire instead of a flat gradient disc.
+  const coreR = Math.max(1, radius * 0.62);
+  ctx.globalAlpha = fade;
+  ctx.drawImage(sprites.fire, x - coreR, y - coreR, coreR * 2, coreR * 2);
+  const blobs = 6;
+  for (let i = 0; i < blobs; i++) {
+    const a = (i / blobs) * TWO_PI + seed;
+    const dist = coreR * (0.5 + rand01(seed, i) * 0.3) * grow;
+    const br = Math.max(1, coreR * (0.42 + rand01(seed, i + 9) * 0.3));
+    ctx.globalAlpha = fade * 0.85;
+    ctx.drawImage(
+      sprites.fire,
+      x + Math.cos(a) * dist - br,
+      y + Math.sin(a) * dist * 0.8 - br,
+      br * 2,
+      br * 2,
+    );
+  }
 
-  // Outward sparks.
-  const sparks = 11;
-  ctx.strokeStyle = `rgba(255, 210, 120, ${0.85 * alpha})`;
-  ctx.lineWidth = 2;
+  // 4. Debris streaks — sparks flung outward, sagging under gravity.
+  const sparks = 16;
+  ctx.globalAlpha = 0.9 * fade;
+  ctx.strokeStyle = 'rgb(255, 214, 130)';
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
   for (let i = 0; i < sparks; i++) {
-    const a = seed + (i / sparks) * TWO_PI;
-    const inner = radius * 0.55;
-    const outer = radius * (0.95 + ((i * 13) % 7) / 18);
-    ctx.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
-    ctx.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
+    const a = seed + (i / sparks) * TWO_PI + (rand01(seed, i + 31) - 0.5) * 0.5;
+    const reach = MISSILE_EXPLOSION_RADIUS * (0.8 + rand01(seed, i + 57) * 0.7);
+    const d = reach * grow;
+    const dropNow = e * e * 90;
+    const px = x + Math.cos(a) * d;
+    const py = y + Math.sin(a) * d + dropNow;
+    // Short tail pointing back along the (curved) travel direction.
+    const tail = 0.82;
+    const tx = x + Math.cos(a) * d * tail;
+    const ty = y + Math.sin(a) * d * tail + dropNow * tail * tail;
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(px, py);
   }
   ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 
 /**
@@ -239,12 +361,18 @@ export function drawMissileFrame(
   const struck: number[] = [];
   const prevComposite = ctx.globalCompositeOperation;
 
-  // Pass 1 — smoke trail, painted normally (greyscale, sits under the rocket).
+  // Pass 1 — smoke, painted normally (greyscale, sits under the fire glow):
+  // exhaust trail while flying, dark aftermath column once exploded.
   ctx.globalCompositeOperation = 'source-over';
   for (let i = 0; i < missiles.length; i++) {
     const m = missiles[i]!;
-    updateSmoke(m, now, (now - m.startTime) / m.flightDuration);
+    const flightT = (now - m.startTime) / m.flightDuration;
+    updateSmoke(m, now, flightT);
     drawSmoke(ctx, m, now);
+    if (flightT >= 1) {
+      const e = Math.min(1, (now - (m.startTime + m.flightDuration)) / m.explodeDuration);
+      drawExplosionSmoke(ctx, m.targetX, m.targetY, e, m.seed);
+    }
   }
 
   // Pass 2 — rocket bodies and explosions, additively blended for the glow.

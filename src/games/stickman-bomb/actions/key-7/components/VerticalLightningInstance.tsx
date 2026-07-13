@@ -7,12 +7,13 @@ import React, { memo, useLayoutEffect, useRef } from 'react';
 import { sleep, waitForRefs } from '../../shared/animationUtils';
 import {
   VERTICAL_LIGHTNING_BOLT_DURATION_MS,
-  VERTICAL_LIGHTNING_SESSION_MS,
+  VERTICAL_LIGHTNING_BOLTS_PER_PRESS,
   VERTICAL_LIGHTNING_SPAWN_INTERVAL_MS,
 } from '../config/verticalLightningConfig';
+import { bumpVerticalLightningCombo } from '../logic/verticalLightningComboStore';
 import { spawnVerticalCloudPulse } from '../logic/verticalLightningFxPool';
 import {
-  cancelAllVerticalBolts,
+  cancelVerticalBoltsByOwner,
   isVerticalLightningCanvasReady,
   isVerticalLightningCanvasSized,
   resizeVerticalLightningCanvas,
@@ -72,7 +73,6 @@ function VerticalLightningInstanceInner({
 
       const layer = layerRef.current!;
       const estate = gameplayTargetRef.current!;
-      const sessionEnd = Date.now() + VERTICAL_LIGHTNING_SESSION_MS;
 
       // Cache rects — refreshed every 500ms to avoid getBoundingClientRect on every bolt.
       let layerRect = layer.getBoundingClientRect();
@@ -80,7 +80,8 @@ function VerticalLightningInstanceInner({
       let lastRectRefresh = Date.now();
       const RECT_REFRESH_MS = 500;
 
-      while (Date.now() < sessionEnd) {
+      // One press fires a fixed burst of bolts, then the burst completes.
+      for (let boltIndex = 0; boltIndex < VERTICAL_LIGHTNING_BOLTS_PER_PRESS; boltIndex += 1) {
         if (cancelled || sequenceId !== sequenceIdRef.current) return;
 
         const now = Date.now();
@@ -106,6 +107,7 @@ function VerticalLightningInstanceInner({
           tipX: bolt.tip.x,
           tipY: bolt.tip.y,
           durationMs: VERTICAL_LIGHTNING_BOLT_DURATION_MS,
+          ownerId: stormId,
           onStrike: () => {
             const freshLayerRect = layer.getBoundingClientRect();
             const freshEstateRect = estate.getBoundingClientRect();
@@ -115,6 +117,7 @@ function VerticalLightningInstanceInner({
               bolt.strikeRatio,
             );
             if (!isPointInsideEstate(strikePoint, freshEstateRect, freshLayerRect)) return;
+            bumpVerticalLightningCombo();
             onStrikeRef.current();
           },
         });
@@ -130,7 +133,8 @@ function VerticalLightningInstanceInner({
 
     return () => {
       cancelled = true;
-      cancelAllVerticalBolts();
+      // Only cancel this storm's bolts — sibling bursts (rapid presses) keep playing.
+      cancelVerticalBoltsByOwner(stormId);
     };
   }, [stormId, gameplayTargetRef, layerRef]);
 

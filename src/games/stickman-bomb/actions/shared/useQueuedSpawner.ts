@@ -78,7 +78,7 @@ export function useQueuedSpawner<
     idRef.current = nextId;
     cooldownUntilRef.current = Date.now() + cooldownMs;
 
-    const newItem = { ...payload, id: nextId } as TItem;
+    const newItem = { ...payload, id: nextId } as unknown as TItem;
     const nextItems = [...itemsRef.current, newItem];
     itemsRef.current = nextItems;
     setItems(nextItems);

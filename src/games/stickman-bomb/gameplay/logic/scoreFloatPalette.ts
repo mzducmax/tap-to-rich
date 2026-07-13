@@ -39,6 +39,32 @@ export function getScoreFloatPresentation(
   source: ScoreFloatSource,
   amount: number,
 ): ScoreFloatPresentation {
+  if (source === 'hammerMegaCombo') {
+    return {
+      fontSize: '5.6rem',
+      strokeWidth: '4px',
+      initialScale: 0.36,
+      peakScale: 1.85,
+      endScale: 1.05,
+      glowBlur: '40px',
+      duration: 1.9,
+      riseY: [-20, -58, -260],
+    };
+  }
+
+  if (source === 'hammerCombo') {
+    return {
+      fontSize: '4.2rem',
+      strokeWidth: '3px',
+      initialScale: 0.4,
+      peakScale: 1.6,
+      endScale: 1,
+      glowBlur: '30px',
+      duration: 1.5,
+      riseY: [-16, -46, -210],
+    };
+  }
+
   if (source === 'key-0') {
     return {
       fontSize: '4.5rem',
@@ -77,6 +103,19 @@ export function getScoreFloatPresentation(
       glowBlur: '28px',
       duration: 2.05,
       riseY: [0, 0, -210],
+    };
+  }
+
+  if (source === 'key-3') {
+    return {
+      fontSize: '5.4rem',
+      strokeWidth: '5px',
+      initialScale: 0.32,
+      peakScale: 1.74,
+      endScale: 1.02,
+      glowBlur: '34px',
+      duration: 1.55,
+      riseY: [-12, -40, -188],
     };
   }
 
@@ -121,14 +160,14 @@ export function getScoreFloatPresentation(
 
   if (source === 'key-8') {
     return {
-      fontSize: '4.75rem',
-      strokeWidth: '4px',
-      initialScale: 0.46,
-      peakScale: 1.58,
-      endScale: 1.02,
-      glowBlur: '30px',
-      duration: 1.55,
-      riseY: [-10, -34, -168],
+      fontSize: '2.75rem',
+      strokeWidth: '2px',
+      initialScale: 0.5,
+      peakScale: 1.28,
+      endScale: 0.94,
+      glowBlur: '16px',
+      duration: 1.3,
+      riseY: [-10, -30, -140],
     };
   }
 
@@ -142,6 +181,19 @@ export function getScoreFloatPresentation(
       glowBlur: '38px',
       duration: 1.38,
       riseY: [-4, -22, -158],
+    };
+  }
+
+  if (source === 'key-i') {
+    return {
+      fontSize: '3.6rem',
+      strokeWidth: '2px',
+      initialScale: 0.5,
+      peakScale: 1.35,
+      endScale: 0.92,
+      glowBlur: '22px',
+      duration: 1.3,
+      riseY: [-12, -32, -155],
     };
   }
 
@@ -195,6 +247,10 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
   switch (source) {
     case 'hammer':
       return { color: '#f59e0b', glow: 'rgba(245,158,11,0.65)', stroke: '#78350f' };
+    case 'hammerCombo':
+      return { color: '#f0abfc', glow: 'rgba(217,70,239,0.95)', stroke: '#701a75' };
+    case 'hammerMegaCombo':
+      return { color: '#fef08a', glow: 'rgba(249,115,22,0.95)', stroke: '#7c2d12' };
     case 'key-0':
       return { color: '#00ff41', glow: 'rgba(0,255,65,0.85)', stroke: '#14532d' };
     case 'key-1':
@@ -202,7 +258,7 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
     case 'key-2':
       return { color: '#fef08a', glow: 'rgba(253,224,71,0.92)', stroke: '#78350f' };
     case 'key-3':
-      return { color: '#38bdf8', glow: 'rgba(56,189,248,0.7)', stroke: '#0c4a6e' };
+      return { color: '#fde047', glow: 'rgba(248,113,113,0.92)', stroke: '#7f1d1d' };
     case 'key-4':
       return { color: '#34d399', glow: 'rgba(52,211,153,0.68)', stroke: '#064e3b' };
     case 'key-5':
@@ -217,9 +273,9 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
       };
     case 'key-8':
       return {
-        color: '#f8fafc',
-        glow: 'rgba(255,255,255,0.92)',
-        stroke: '#0a0a0a',
+        color: '#f1f5f9',
+        glow: 'rgba(239, 68, 68, 0.9)',
+        stroke: '#0f172a',
       };
     case 'key-9':
       return { color: '#fde047', glow: 'rgba(253,224,71,0.95)', stroke: '#1e3a8a' };
@@ -229,6 +285,8 @@ export function getScoreFloatPalette(source: ScoreFloatSource) {
       return { color: '#fde047', glow: 'rgba(251,191,36,0.9)', stroke: '#78350f' };
     case 'key-i':
       return { color: '#fb923c', glow: 'rgba(248,113,113,0.9)', stroke: '#7f1d1d' };
+    case 'key-u':
+      return { color: '#f5402a', glow: 'rgba(220,38,38,0.9)', stroke: '#7f1109' };
     case 'gun':
       return { color: '#60a5fa', glow: 'rgba(96,165,250,0.64)', stroke: '#1e3a8a' };
     case 'sheep':

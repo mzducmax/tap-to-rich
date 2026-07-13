@@ -2,7 +2,7 @@
   "name": "stack-box",
   "private": true,
   "version": "1.0.0",
-  "description": "Stack Box — 2.5D isometric stacking game with TikTok live integration",
+  "description": "Only Click — smash the coin live game with TikTok integration",
   "author": "Zonee",
   "type": "module",
   "main": "electron/main.cjs",
@@ -19,8 +19,8 @@
     "electron:pack": "npm run icons && npm run build:obfuscated && electron-builder --win --dir"
   },
   "build": {
-    "appId": "pro.zonee.stack-box",
-    "productName": "Stack Box",
+    "appId": "pro.zonee.only-click",
+    "productName": "Only Click",
     "copyright": "Copyright © Zonee",
     "directories": {
       "output": "release",
@@ -60,7 +60,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Stack Box",
+      "shortcutName": "Only Click",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
     }
@@ -76,6 +76,7 @@
     "pixi.js": "^8.19.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
+    "tiktok-live-connector": "^2.4.0",
     "vite": "^6.2.3"
   },
   "devDependencies": {

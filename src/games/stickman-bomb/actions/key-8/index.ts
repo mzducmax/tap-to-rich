@@ -1,5 +1,5 @@
 /**
- * Key 8 — soccer ball kick exports.
+ * Key 8 — knife drop exports.
  * @license SPDX-License-Identifier: Apache-2.0
  */
 

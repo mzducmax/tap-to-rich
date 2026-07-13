@@ -6,7 +6,13 @@
 export const skyCloudStyles = `
   .sky-cloud-layer {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* Clouds only ever occupy the sky band — a full-screen layer forces the
+       compositor to re-mask/re-composite the entire viewport every canvas
+       frame, which tanks FPS. Same fade stops rescaled to the 62% band. */
+    height: 62%;
     pointer-events: none;
     overflow: visible;
     z-index: 0;
@@ -15,16 +21,16 @@ export const skyCloudStyles = `
     -webkit-mask-image: linear-gradient(
       to bottom,
       rgba(0, 0, 0, 1) 0%,
-      rgba(0, 0, 0, 1) 42%,
-      rgba(0, 0, 0, 0.55) 52%,
-      rgba(0, 0, 0, 0) 62%
+      rgba(0, 0, 0, 1) 68%,
+      rgba(0, 0, 0, 0.55) 84%,
+      rgba(0, 0, 0, 0) 100%
     );
     mask-image: linear-gradient(
       to bottom,
       rgba(0, 0, 0, 1) 0%,
-      rgba(0, 0, 0, 1) 42%,
-      rgba(0, 0, 0, 0.55) 52%,
-      rgba(0, 0, 0, 0) 62%
+      rgba(0, 0, 0, 1) 68%,
+      rgba(0, 0, 0, 0.55) 84%,
+      rgba(0, 0, 0, 0) 100%
     );
   }
 
